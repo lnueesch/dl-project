@@ -2,7 +2,7 @@
 
 Marek Landert   
 Johannes Nüesch  
-Lukas Nüesch  
+Lukas Christof Nüesch  
 
 # Clustering with Varying Label Quality and Quantity
 
