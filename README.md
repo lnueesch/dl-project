@@ -1,6 +1,6 @@
 # DL 2024 course project
 
-Marek Landert   
+Marek Landert  
 Johannes Nüesch  
 Lukas Nüesch  
 
