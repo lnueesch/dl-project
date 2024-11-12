@@ -1,8 +1,8 @@
 # DL 2024 course project
 
-Marek
-Johannes Nüesch
-Lukas Nüesch
+Marek  
+Johannes Nüesch  
+Lukas Nüesch  
 
 # Clustering with Varying Label Quality and Quantity
 
