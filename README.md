@@ -40,10 +40,4 @@ Use **t-SNE** or **UMAP** to visualize cluster distributions and observe the imp
 2. **Model Training**: Fine-tune SSCC using different label configurations and apply transfer learning for efficiency.
 3. **Evaluation and Visualization**: Calculate metrics and visualize clusters to analyze how label variations affect clustering quality.
 
-## Usage
-1. Clone the repository and install dependencies.
-2. Preprocess the data:
-   ```bash
-   python preprocess_data.py
-
 
