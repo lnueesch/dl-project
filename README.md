@@ -8,8 +8,7 @@ Lukas Nüesch
 
 ## Motivation
 In many real world scenarios we are presented with datasets that only contain sparse labels or even miss labels for certain classes. 
-This project aims to extend the **DeepCluster** architecture, which is fully Unsupervised is its original form, to work with sparse label data and an unknown number
-clusters. 
+This project aims to extend the **DeepCluster** architecture, which is fully unsupervised in its original form, to work with sparse label data and an unknown number of clusters. 
 
 To summarize we will:
 - Add support for partial labels
@@ -18,8 +17,7 @@ To summarize we will:
 Using the additional label information we aim to find the number of clusters jointly with the cluster assignments.
 
 ## Model
-We aim to base our approaches on **DeepCluster** and extend and extend it to our problem. For label and unknown number of cluster support
- we will experiment with different architectures.
+We aim to base our approaches on **DeepCluster** and extend and extend it to our problem. For label and unknown number of cluster support we will experiment with different architectures.
 
 ## Datasets
 Since we want to solve the probelems jointly we wont be able to use pretrained networks. Therefore smaller and simpler datasets like **MNIST** are more
