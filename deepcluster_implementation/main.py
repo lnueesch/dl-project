@@ -33,7 +33,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
 }
 
 def main(args):
@@ -86,11 +86,19 @@ def main(args):
     if args['verbose']:
         print('Architecture:', args['arch'])
     model = models.__dict__[args['arch']](sobel=args['sobel'])
+
     fd = int(model.top_layer.weight.size()[1])
     model.top_layer = None
+    # Move the model to the correct device
+    model = model.to(device)
+
+    # Wrap the model's feature extractor in DataParallel
     model.features = torch.nn.DataParallel(model.features)
+
+    # Ensure the entire model is on the correct device
     model = model.to(device)
     cudnn.benchmark = True
+
 
     # Optimizer
     optimizer = torch.optim.SGD(
@@ -203,11 +211,17 @@ def compute_features(dataloader, model, N, device):
     end = time.time()
     model.eval()
 
-    for i, (input_tensor, _) in enumerate(dataloader):
-        input_var = torch.autograd.Variable(input_tensor.to(device))
-        aux = model(input_var).data.cpu().numpy()
+    features = None
 
-        if i == 0:
+    for i, (input_tensor, _) in enumerate(dataloader):
+        # Move input tensor to the correct device
+        input_var = input_tensor.to(device)
+
+        # Forward pass
+        with torch.no_grad():
+            aux = model(input_var).data.cpu().numpy()
+
+        if features is None:
             features = np.zeros((N, aux.shape[1]), dtype='float32')
 
         aux = aux.astype('float32')
@@ -224,6 +238,8 @@ def compute_features(dataloader, model, N, device):
             print(f"{i}/{len(dataloader)}\tTime: {batch_time.val:.3f} ({batch_time.avg:.3f})")
 
     return features
+
+
 
 
 def train(loader, model, criterion, optimizer, epoch, device):
@@ -245,10 +261,9 @@ def train(loader, model, criterion, optimizer, epoch, device):
     for i, (input_tensor, target) in enumerate(loader):
         data_time.update(time.time() - end)
 
-        # Transfer data to GPU
-        target = target.to(device)
-        input_var = torch.autograd.Variable(input_tensor.to(device))
-        target_var = torch.autograd.Variable(target)
+        # Move inputs and targets to the correct device
+        input_var = input_tensor.to(device)
+        target_var = target.to(device)
 
         # Forward pass
         output = model(input_var)
@@ -277,6 +292,7 @@ def train(loader, model, criterion, optimizer, epoch, device):
                           data_time=data_time, loss=losses))
 
     return losses.avg
+
 
 
 if __name__ == "__main__":

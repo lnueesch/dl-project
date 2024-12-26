@@ -45,6 +45,7 @@ class SimpleCNN(nn.Module):
             self.sobel = None
 
     def forward(self, x):
+        x = x.to(next(self.parameters()).device)
         if self.sobel:
             x = self.sobel(x)
         x = self.features(x)
