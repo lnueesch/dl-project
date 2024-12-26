@@ -1,5 +1,6 @@
 import time
 import numpy as np
+from sklearn.metrics.cluster import normalized_mutual_info_score
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -32,7 +33,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
 }
 
 def main(args):
@@ -69,6 +70,9 @@ def main(args):
     indices = random.sample(range(len(full_dataset)), subset_size)
     dataset = Subset(full_dataset, indices)
 
+    # print shape of a single sample
+    print("sample shape: " + str(dataset[0][0].shape))
+
     # DataLoader
     train_loader = DataLoader(
         dataset,
@@ -82,6 +86,7 @@ def main(args):
     if args['verbose']:
         print('Architecture:', args['arch'])
     model = models.__dict__[args['arch']](sobel=args['sobel'])
+    fd = int(model.top_layer.weight.size()[1])
     model.top_layer = None
     model.features = torch.nn.DataParallel(model.features)
     model = model.to(device)
@@ -100,21 +105,32 @@ def main(args):
 
 
     # Clustering
-    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'])
+    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device)
 
     # Logging setup
     cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
 
     # Start Training
     for epoch in range(args['epochs']):
+
+        # remove head
+        model.top_layer = None
+        model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
+
         # Compute features
         features = compute_features(train_loader, model, len(dataset), device)
 
-        # Cluster features
+
+        #cluster the features
+        if args['verbose']:
+            print('Clustering features')
         clustering_loss = deepcluster.cluster(features, verbose=args['verbose'])
 
         # Assign pseudo-labels
-        train_dataset = clustering.cluster_assign(deepcluster.images_lists, dataset.data)
+        if args['verbose']:
+            print('Assigning pseudo labels')
+        train_dataset = clustering.cluster_assign(deepcluster.images_lists, dataset.dataset)
+
 
         # Uniformly sample targets
         sampler = UnifLabelSampler(int(args['reassign'] * len(train_dataset)), deepcluster.images_lists)
@@ -127,12 +143,44 @@ def main(args):
             pin_memory=True
         )
 
+        # set last fully connected layer
+        mlp = list(model.classifier.children())
+        mlp.append(nn.ReLU(inplace=True).to(device))
+        model.classifier = nn.Sequential(*mlp)
+        model.top_layer = nn.Linear(fd, len(deepcluster.images_lists))
+        model.top_layer.weight.data.normal_(0, 0.01)
+        model.top_layer.bias.data.zero_()
+        model.top_layer.to(device)
+
         # Train network with pseudo-labels
+        end = time.time()
         loss = train(train_dataloader, model, criterion, optimizer, epoch, device)
 
-        # Log and save progress
+        # print log
+        if args['verbose']:
+            print('###### Epoch [{0}] ###### \n'
+                  'Time: {1:.3f} s\n'
+                  'Clustering loss: {2:.3f} \n'
+                  'ConvNet loss: {3:.3f}'
+                  .format(epoch, time.time() - end, clustering_loss, loss))
+            try:
+                nmi = normalized_mutual_info_score(
+                    clustering.arrange_clustering(deepcluster.images_lists),
+                    clustering.arrange_clustering(cluster_log.data[-1])
+                )
+                print('NMI against previous assignment: {0:.3f}'.format(nmi))
+            except IndexError:
+                pass
+            print('####################### \n')
+        # save running checkpoint
+        torch.save({'epoch': epoch + 1,
+                    'arch': args['arch'],
+                    'state_dict': model.state_dict(),
+                    'optimizer' : optimizer.state_dict()},
+                   os.path.join(args['exp'], 'checkpoint.pth.tar'))
+
+        # save cluster assignments
         cluster_log.log(deepcluster.images_lists)
-        save_checkpoint(epoch, model, optimizer, args)
 
 
 def save_checkpoint(epoch, model, optimizer, args):
@@ -156,7 +204,7 @@ def compute_features(dataloader, model, N, device):
     model.eval()
 
     for i, (input_tensor, _) in enumerate(dataloader):
-        input_var = torch.autograd.Variable(input_tensor.to(device), volatile=True)
+        input_var = torch.autograd.Variable(input_tensor.to(device))
         aux = model(input_var).data.cpu().numpy()
 
         if i == 0:
@@ -221,9 +269,12 @@ def train(loader, model, criterion, optimizer, epoch, device):
         end = time.time()
 
         if args['verbose'] and (i % 200) == 0:
-            print(f"Epoch: [{epoch}][{i}/{len(loader)}]\t"
-                  f"Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                  f"Loss: {losses.val:.4f} ({losses.avg:.4f})")
+            print('Epoch: [{0}][{1}/{2}]\t'
+                  'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Data: {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss: {loss.val:.4f} ({loss.avg:.4f})'
+                  .format(epoch, i, len(loader), batch_time=batch_time,
+                          data_time=data_time, loss=losses))
 
     return losses.avg
 

@@ -69,6 +69,7 @@ def make_layers_features(cfg, input_dim, bn):
     """Dynamically create layers from configuration."""
     layers = []
     in_channels = input_dim
+    print(input_dim)
     for v in cfg:
         if v == 'M':  # MaxPooling
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -84,6 +85,6 @@ def make_layers_features(cfg, input_dim, bn):
 
 def simplecnn(sobel=False, bn=True, out=10):
     """Constructor function for SimpleCNN."""
-    dim = 1 + int(not sobel)  # Adjust input channels for Sobel
+    dim = int(not sobel)  # Adjust input channels for Sobel
     model = SimpleCNN(make_layers_features(CFG['mnist'], dim, bn=bn), out, sobel)
     return model

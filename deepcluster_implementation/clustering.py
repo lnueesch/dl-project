@@ -7,6 +7,7 @@
 import time
 
 import faiss
+faiss.omp_set_num_threads(1)  # Use a single thread for debugging
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
@@ -14,6 +15,7 @@ from scipy.sparse import csr_matrix, find
 import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
+import cv2
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -28,8 +30,12 @@ def pil_loader(path):
         Image
     """
     with open(path, 'rb') as f:
+        # open the image file. it is an mnist image
         img = Image.open(f)
-        return img.convert('RGB')
+        img = img.convert('L')
+        cv2.imshow('image', np.array(img))
+        cv2.waitKey(0)
+        return img
 
 
 class ReassignedDataset(data.Dataset):
@@ -51,9 +57,10 @@ class ReassignedDataset(data.Dataset):
         label_to_idx = {label: idx for idx, label in enumerate(set(pseudolabels))}
         images = []
         for j, idx in enumerate(image_indexes):
-            path = dataset[idx][0]
+            # Use the image Tensor directly from MNIST
+            img = dataset[idx][0]  # This is the Tensor
             pseudolabel = label_to_idx[pseudolabels[j]]
-            images.append((path, pseudolabel))
+            images.append((img, pseudolabel))
         return images
 
     def __getitem__(self, index):
@@ -63,8 +70,7 @@ class ReassignedDataset(data.Dataset):
         Returns:
             tuple: (image, pseudolabel) where pseudolabel is the cluster of index datapoint
         """
-        path, pseudolabel = self.imgs[index]
-        img = pil_loader(path)
+        img, pseudolabel = self.imgs[index]
         if self.transform is not None:
             img = self.transform(img)
         return img, pseudolabel
@@ -73,7 +79,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.imgs)
 
 
-def preprocess_features(npdata, pca=256):
+def preprocess_features(npdata, pca=16):
     """Preprocess an array of features.
     Args:
         npdata (np.array N * ndim): features to preprocess
@@ -97,26 +103,41 @@ def preprocess_features(npdata, pca=256):
     return npdata
 
 
-def make_graph(xb, nnn):
-    """Builds a graph of nearest neighbors.
-    Args:
-        xb (np.array): data
-        nnn (int): number of nearest neighbors
-    Returns:
-        list: for each data the list of ids to its nnn nearest neighbors
-        list: for each data the list of distances to its nnn NN
-    """
+# Use the device argument to configure GPU or CPU-based Faiss functions
+def is_gpu_available():
+    """Check if CUDA is available"""
+    return torch.cuda.is_available()
+
+def is_mps_available():
+    """Check if MPS (Metal) is available on Mac"""
+    return torch.backends.mps.is_available()
+
+def make_graph(xb, nnn, device):
+    """Builds a graph of nearest neighbors depending on the device"""
     N, dim = xb.shape
-
-    # we need only a StandardGpuResources per GPU
-    res = faiss.StandardGpuResources()
-
-    # L2
-    flat_config = faiss.GpuIndexFlatConfig()
-    flat_config.device = int(torch.cuda.device_count()) - 1
-    index = faiss.GpuIndexFlatL2(res, dim, flat_config)
-    index.add(xb)
-    D, I = index.search(xb, nnn + 1)
+    if device == 'cuda' and is_gpu_available():
+        print('Using GPU for Faiss')
+        res = faiss.StandardGpuResources()
+        flat_config = faiss.GpuIndexFlatConfig()
+        flat_config.device = int(torch.cuda.current_device())
+        index = faiss.GpuIndexFlatL2(res, dim, flat_config)
+        index.add(xb)
+        D, I = index.search(xb, nnn + 1)
+    elif device == 'mps' and is_mps_available():
+        # If MPS is available, use the MPS-specific functions (if Faiss supports it for MPS)
+        res = faiss.StandardGpuResources()
+        flat_config = faiss.GpuIndexFlatConfig()
+        flat_config.device = 0
+        index = faiss.GpuIndexFlatL2(res, dim, flat_config)
+        index.add(xb)
+        D, I = index.search(xb, nnn + 1)
+    else:
+        # Default to CPU
+        print('Using CPU for Faiss')
+        index = faiss.IndexFlatL2(dim)
+        index.add(xb)
+        D, I = index.search(xb, nnn + 1)
+        
     return I, D
 
 
@@ -137,17 +158,14 @@ def cluster_assign(images_lists, dataset):
         image_indexes.extend(images)
         pseudolabels.extend([cluster] * len(images))
 
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    t = transforms.Compose([transforms.RandomResizedCrop(224),
-                            transforms.RandomHorizontalFlip(),
-                            transforms.ToTensor(),
-                            normalize])
+    t = transforms.Compose([
+        transforms.Normalize((0.1307,), (0.3081,))  # MNIST mean and std
+    ])
 
     return ReassignedDataset(image_indexes, pseudolabels, dataset, t)
 
 
-def run_kmeans(x, nmb_clusters, verbose=False):
+def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
     """Runs kmeans on 1 GPU.
     Args:
         x: data
@@ -157,26 +175,43 @@ def run_kmeans(x, nmb_clusters, verbose=False):
     """
     n_data, d = x.shape
 
-    # faiss implementation of k-means
-    clus = faiss.Clustering(d, nmb_clusters)
+    # PCA-reducing, whitening and L2-normalization
+    xb = preprocess_features(x)
 
-    # Change faiss seed at each k-means so that the randomly picked
-    # initialization centroids do not correspond to the same feature ids
-    # from an epoch to another.
+    # Perform k-means clustering using Faiss
+    if device == 'cuda' and is_gpu_available():
+        clus = faiss.Clustering(d, nmb_clusters)
+        res = faiss.StandardGpuResources()
+        flat_config = faiss.GpuIndexFlatConfig()
+        flat_config.device = int(torch.cuda.current_device())
+        index = faiss.GpuIndexFlatL2(res, d, flat_config)
+    elif device == 'mps' and is_mps_available():
+        print('Using MPS (Metal Performance Shaders) for Faiss')
+        clus = faiss.Clustering(d, nmb_clusters)
+        res = faiss.StandardGpuResources()
+        flat_config = faiss.GpuIndexFlatConfig()
+        flat_config.device = 0
+        index = faiss.GpuIndexFlatL2(res, d, flat_config)
+    else:
+        print('Using CPU for Faiss')
+        clus = faiss.Clustering(d, nmb_clusters)
+        index = faiss.IndexFlatL2(d)
+
     clus.seed = np.random.randint(1234)
-
     clus.niter = 20
-    clus.max_points_per_centroid = 10000000
-    res = faiss.StandardGpuResources()
-    flat_config = faiss.GpuIndexFlatConfig()
-    flat_config.useFloat16 = False
-    flat_config.device = 0
-    index = faiss.GpuIndexFlatL2(res, d, flat_config)
+    clus.max_points_per_centroid = 2000
+    if not np.all(np.isfinite(xb)):
+        raise ValueError("Input data contains NaNs or infinite values.")
+    # print(f"xb shape: {xb.shape}, xb dtype: {xb.dtype}")
+    clus.train(xb, index)
+    # print("centroids: ", str(clus.centroids))
+    # print("ntotal: ", str(index.ntotal))
+    _, I = index.search(xb, 1)
 
-    # perform the training
-    clus.train(x, index)
-    _, I = index.search(x, 1)
-    losses = faiss.vector_to_array(clus.obj)
+    stats = clus.iteration_stats
+    obj = np.array([stats.at(i).obj for i in range(stats.size())])
+    # print("obj: ", str(obj))
+    losses = obj
     if verbose:
         print('k-means loss evolution: {0}'.format(losses))
 
@@ -194,8 +229,9 @@ def arrange_clustering(images_lists):
 
 
 class Kmeans(object):
-    def __init__(self, k):
+    def __init__(self, k, device='cpu'):
         self.k = k
+        self.device = device
 
     def cluster(self, data, verbose=False):
         """Performs k-means clustering.
@@ -207,8 +243,8 @@ class Kmeans(object):
         # PCA-reducing, whitening and L2-normalization
         xb = preprocess_features(data)
 
-        # cluster the data
-        I, loss = run_kmeans(xb, self.k, verbose)
+        # Cluster the data
+        I, loss = run_kmeans(xb, self.k, verbose, self.device)
         self.images_lists = [[] for i in range(self.k)]
         for i in range(len(data)):
             self.images_lists[I[i]].append(i)
