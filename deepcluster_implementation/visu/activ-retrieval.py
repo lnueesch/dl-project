@@ -27,7 +27,6 @@ device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if 
     # return parser.parse_args()
 
 
-
 def forward(model, my_layer, x):
     if model.sobel is not None:
         x = model.sobel(x)
