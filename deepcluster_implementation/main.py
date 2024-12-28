@@ -60,12 +60,15 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 1.  # Use 10% of the dataset
+    fraction = 0.5  # Use 10% of the dataset
 
     # Load MNIST dataset
     full_dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
 
     # Create a subset of the dataset
+    # Shuffle the dataset before truncating to get a proper distribution
+    indices = list(range(len(full_dataset)))
+    random.shuffle(indices)
     subset_size = int(len(full_dataset) * fraction)
     indices = random.sample(range(len(full_dataset)), subset_size)
     dataset = Subset(full_dataset, indices)
@@ -111,28 +114,29 @@ def main(args):
     # Loss Function
     criterion = nn.CrossEntropyLoss().to(device)
 
-
     # Clustering
-    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device)
+    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device, plot=True)
 
     # Logging setup
     cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
 
     # Start Training
     for epoch in range(args['epochs']):
-
-        # remove head
+        # Remove head
         model.top_layer = None
         model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
 
         # Compute features
         features = compute_features(train_loader, model, len(dataset), device)
 
+        # Extract true labels
+        true_labels = np.array([label for _, label in dataset])
 
-        #cluster the features
+        # Cluster features and visualize
         if args['verbose']:
             print('Clustering features')
-        clustering_loss = deepcluster.cluster(features, verbose=args['verbose'])
+        save_path = os.path.join(args['exp'], 'visualizations', f"epoch_{epoch}.png")
+        clustering_loss = deepcluster.cluster(features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'])
 
         # Assign pseudo-labels
         if args['verbose']:
