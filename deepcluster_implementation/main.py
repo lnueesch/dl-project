@@ -21,7 +21,7 @@ args = {
     'sobel': False,
     'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 0.05,
+    'lr': 0.1,
     'wd': -5,
     'reassign': 1.0,
     'workers': 4,
@@ -60,7 +60,7 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 0.1  # Use 10% of the dataset
+    fraction = 1.  # Use 10% of the dataset
 
     # Load MNIST dataset
     full_dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
@@ -225,6 +225,9 @@ def compute_features(dataloader, model, N, device):
             features = np.zeros((N, aux.shape[1]), dtype='float32')
 
         aux = aux.astype('float32')
+        if np.any(np.isnan(aux)) or np.any(np.isinf(aux)):
+            raise ValueError("NaN or Inf detected in computed features")
+
         if i < len(dataloader) - 1:
             features[i * args['batch']: (i + 1) * args['batch']] = aux
         else:

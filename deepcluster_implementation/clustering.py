@@ -80,25 +80,42 @@ class ReassignedDataset(data.Dataset):
 
 
 def preprocess_features(npdata, pca=16):
-    """Preprocess an array of features.
-    Args:
-        npdata (np.array N * ndim): features to preprocess
-        pca (int): dim of output
-    Returns:
-        np.array of dim N * pca: data PCA-reduced, whitened and L2-normalized
-    """
     _, ndim = npdata.shape
-    npdata =  npdata.astype('float32')
+    npdata = npdata.astype('float32')
+
+    # Check for degenerate data
+    if np.any(np.all(npdata == 0, axis=1)):
+        raise ValueError("Input data in preproces_features contains all-zero rows, cannot preprocess.")
+    
+    # check for NaN and infinite values
+    if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
+        raise ValueError("Input data contains NaNs or infinite values.")
 
     # Apply PCA-whitening with Faiss
-    mat = faiss.PCAMatrix (ndim, pca, eigen_power=-0.5)
+    mat = faiss.PCAMatrix(ndim, pca, eigen_power=-0.5)
     mat.train(npdata)
-    assert mat.is_trained
+    if not mat.is_trained:
+        raise ValueError("PCA training failed; check the input data.")
+    
+    # check for NaN and infinite values
+    if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
+        raise ValueError("NaN or Inf detected in preprocessed features before apply_py.")
+
     npdata = mat.apply_py(npdata)
+
+    # check for NaN and infinite values
+    if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
+        raise ValueError("NaN or Inf detected in preprocessed features after apply_py.")
 
     # L2 normalization
     row_sums = np.linalg.norm(npdata, axis=1)
+    if np.any(row_sums == 0):
+        raise ValueError("L2 normalization failed due to zero-row norm.")
     npdata = npdata / row_sums[:, np.newaxis]
+
+    # check for NaN and infinite values
+    if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
+        raise ValueError("NaN or Inf detected in preprocessed features.")
 
     return npdata
 
