@@ -22,7 +22,7 @@ args = {
     'sobel': False,
     'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 2,
+    'lr': 0.2,
     'wd': -5,
     'reassign': 1.0,
     'workers': 4,
@@ -62,7 +62,7 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 0.2  # Use 10% of the dataset
+    fraction = 1  # Use 10% of the dataset
 
     # Load MNIST dataset
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
@@ -274,6 +274,11 @@ def train(loader, model, criterion, optimizer, epoch, device):
         output = model(input_var)
         loss = criterion(output, target_var)
 
+        # Measure accuracy on pseudo-labels
+        _, predicted = torch.max(output, 1)
+        correct = (predicted == target_var).sum().item()
+        accuracy = correct / input_tensor.size(0)
+
         # Record loss
         losses.update(loss.item(), input_tensor.size(0))
 
@@ -293,8 +298,9 @@ def train(loader, model, criterion, optimizer, epoch, device):
                   'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data: {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss: {loss.val:.4f} ({loss.avg:.4f})'
+                  'Accuracy: {accuracy:.4f}'
                   .format(epoch, i, len(loader), batch_time=batch_time,
-                          data_time=data_time, loss=losses))
+                          data_time=data_time, loss=losses, accuracy=accuracy))
 
     return losses.avg
 
