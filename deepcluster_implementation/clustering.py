@@ -24,20 +24,20 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 __all__ = ['PIC', 'Kmeans', 'cluster_assign', 'arrange_clustering']
 
-def plot_clusters(features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None):
+def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None):
     """
-    Visualize clusters using t-SNE or PCA-reduced features.
+    Update the same figure for cluster visualization during training.
     Args:
+        fig: Matplotlib figure object.
+        axes: Matplotlib axes array.
         features (np.array): PCA-reduced feature array (N x d).
         kmeans_labels (np.array): Cluster labels from k-means (N,).
         true_labels (np.array): Ground truth labels (N,).
         n_clusters (int): Number of clusters.
         epoch (int): Current epoch for annotation.
-        save_path (str): Path to save the plot (optional).
     """
     # Reduce to 2D with t-SNE for visualization
     tsne = TSNE(n_components=2, random_state=42, perplexity=30)
-    # Use only a fraction of the features for visualization
     fraction = 0.05  # Use 10% of the features
     num_samples = int(features.shape[0] * fraction)
     indices = np.random.choice(features.shape[0], num_samples, replace=False)
@@ -45,32 +45,32 @@ def plot_clusters(features, kmeans_labels, true_labels, n_clusters, epoch, save_
     kmeans_labels = kmeans_labels[indices]
     true_labels = true_labels[indices]
 
-    # Create scatter plot for k-means clusters
-    plt.figure(figsize=(12, 6))
+    # Clear previous plots
+    for ax in axes:
+        ax.clear()
 
-    # K-means clustering
-    plt.subplot(1, 2, 1)
+    # Plot K-means clustering
     for cluster in range(n_clusters):
         cluster_indices = (kmeans_labels == cluster)
-        plt.scatter(reduced_features[cluster_indices, 0], reduced_features[cluster_indices, 1],
-                    label=f"Cluster {cluster}", alpha=0.6)
-    plt.title(f"K-means Clusters (Epoch {epoch})")
-    plt.legend()
+        axes[0].scatter(reduced_features[cluster_indices, 0],
+                        reduced_features[cluster_indices, 1],
+                        label=f"Cluster {cluster}", alpha=0.6)
+    axes[0].set_title(f"K-means Clusters (Epoch {epoch})")
+    axes[0].legend()
 
-    # True labels
-    plt.subplot(1, 2, 2)
+    # Plot True labels
     unique_labels = np.unique(true_labels)
     for label in unique_labels:
         label_indices = (true_labels == label)
-        plt.scatter(reduced_features[label_indices, 0], reduced_features[label_indices, 1],
-                    label=f"Label {label}", alpha=0.6)
-    plt.title(f"True Labels (Epoch {epoch})")
-    plt.legend()
+        axes[1].scatter(reduced_features[label_indices, 0],
+                        reduced_features[label_indices, 1],
+                        label=f"Label {label}", alpha=0.6)
+    axes[1].set_title(f"True Labels (Epoch {epoch})")
+    axes[1].legend()
 
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path)
-    plt.show()
+    # Redraw the figure
+    fig.tight_layout()
+    plt.pause(0.001)
 
 def pil_loader(path):
     """Loads an image (for demonstration)."""
@@ -119,7 +119,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.imgs)
 
 
-def preprocess_features(npdata, pca=32):
+def preprocess_features(npdata, pca=8):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
     print("ndim: ", ndim)
@@ -256,8 +256,8 @@ def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
         index = faiss.IndexFlatL2(d)
 
     clus.seed = np.random.randint(1234)
-    clus.niter = 20
-    clus.max_points_per_centroid = n_data // 2
+    clus.niter = 10
+    clus.max_points_per_centroid = n_data // 3
     clus.train(xb, index)
     _, I = index.search(xb, 1)
 
@@ -298,11 +298,11 @@ class Kmeans(object):
       - plots clustering results if `plot` flag is set
     """
     def __init__(self, k, device='cpu', plot=True):
-        self.k = k
-        self.device = device
+        self.k = k # Number of clusters
+        self.device = device # Device to run k-means on
         self.plot = plot  # New flag to enable/disable plotting
 
-    def cluster(self, x_data, true_labels=None, epoch=None, verbose=False):
+    def cluster(self, fig, axes, x_data, true_labels=None, epoch=None, verbose=False):
         """
         Performs k-means clustering on x_data.
         Args:
@@ -329,7 +329,7 @@ class Kmeans(object):
         if self.plot and true_labels is not None and epoch is not None:
             kmeans_labels = np.array(I)  # Cluster assignments
             save_path = f"cluster_plot_epoch_{epoch}.png"  # Optional save path
-            plot_clusters(x_data, kmeans_labels, true_labels, self.k, epoch, save_path)
+            plot_clusters(fig, axes, x_data, kmeans_labels, true_labels, self.k, epoch, save_path)
 
         return loss
 
@@ -430,7 +430,7 @@ class PIC(object):
         self.nnn = nnn
         self.distribute_singletons = distribute_singletons
 
-    def cluster(self, data, verbose=False):
+    def cluster(self, fig, axes, data, verbose=False):
         end = time.time()
 
         # 1) Preprocess data

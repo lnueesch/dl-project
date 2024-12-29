@@ -13,6 +13,7 @@ from util import AverageMeter, Logger, UnifLabelSampler
 import models
 import os
 import random
+import matplotlib.pyplot as plt
 
 # Define parameters directly
 args = {
@@ -21,7 +22,7 @@ args = {
     'sobel': False,
     'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 0.1,
+    'lr': 2,
     'wd': -5,
     'reassign': 1.0,
     'workers': 4,
@@ -34,6 +35,7 @@ args = {
     'exp': './experiment',
     'verbose': True,
     'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
+    'plot_clusters' : True
 }
 
 def main(args):
@@ -60,18 +62,11 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 0.5  # Use 10% of the dataset
+    fraction = 0.2  # Use 10% of the dataset
 
     # Load MNIST dataset
-    full_dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
-
-    # Create a subset of the dataset
-    # Shuffle the dataset before truncating to get a proper distribution
-    indices = list(range(len(full_dataset)))
-    random.shuffle(indices)
-    subset_size = int(len(full_dataset) * fraction)
-    indices = random.sample(range(len(full_dataset)), subset_size)
-    dataset = Subset(full_dataset, indices)
+    dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
+    dataset = Subset(dataset, random.sample(range(len(dataset)), int(fraction * len(dataset))))
 
     # print shape of a single sample
     print("sample shape: " + str(dataset[0][0].shape))
@@ -102,7 +97,6 @@ def main(args):
     model = model.to(device)
     cudnn.benchmark = True
 
-
     # Optimizer
     optimizer = torch.optim.SGD(
         filter(lambda x: x.requires_grad, model.parameters()),
@@ -115,10 +109,14 @@ def main(args):
     criterion = nn.CrossEntropyLoss().to(device)
 
     # Clustering
-    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device, plot=True)
+    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device, plot=args['plot_clusters'])
 
     # Logging setup
     cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
+
+    # if plot_clusters, create figure
+    if args['plot_clusters']:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
     # Start Training
     for epoch in range(args['epochs']):
@@ -136,7 +134,7 @@ def main(args):
         if args['verbose']:
             print('Clustering features')
         save_path = os.path.join(args['exp'], 'visualizations', f"epoch_{epoch}.png")
-        clustering_loss = deepcluster.cluster(features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'])
+        clustering_loss = deepcluster.cluster(fig, axes, features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'])
 
         # Assign pseudo-labels
         if args['verbose']:
