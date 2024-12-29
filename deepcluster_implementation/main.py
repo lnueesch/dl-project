@@ -22,9 +22,9 @@ args = {
     'sobel': False,
     'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 0.2,
+    'lr': 1e-1,
     'wd': -5,
-    'reassign': 1.0,
+    'reassign': 10.0,
     'workers': 4,
     'epochs': 50,
     'batch': 256,
@@ -35,7 +35,7 @@ args = {
     'exp': './experiment',
     'verbose': True,
     'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
-    'plot_clusters' : True
+    'plot_clusters' : True,
 }
 
 def main(args):
@@ -62,7 +62,7 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 1  # Use 10% of the dataset
+    fraction = 1.0  # Use 10% of the dataset
 
     # Load MNIST dataset
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
@@ -76,7 +76,7 @@ def main(args):
         dataset,
         batch_size=args['batch'],
         num_workers=args['workers'],
-        shuffle=True,
+        shuffle=False,
         pin_memory=True
     )
 
@@ -204,6 +204,27 @@ def save_checkpoint(epoch, model, optimizer, args):
     if args['verbose']:
         print(f"Checkpoint saved at {checkpoint_path}")
 
+# def compute_features(dataloader, model, N, device):
+#     """Return raw images from the dataset."""
+#     if args['verbose']:
+#         print('Returning raw images as features for testing')
+
+#     # Initialize features as an array to store raw images
+#     features = None
+
+#     for i, (input_tensor, _) in enumerate(dataloader):
+#         # Flatten the input images (e.g., from [B, 1, 28, 28] to [B, 784])
+#         input_flat = input_tensor.view(input_tensor.size(0), -1).cpu().numpy()
+
+#         if features is None:
+#             features = np.zeros((N, input_flat.shape[1]), dtype='float32')
+
+#         if i < len(dataloader) - 1:
+#             features[i * args['batch']: (i + 1) * args['batch']] = input_flat
+#         else:
+#             features[i * args['batch']:] = input_flat
+
+#     return features
 
 def compute_features(dataloader, model, N, device):
     """Extract features from the dataset."""
@@ -242,13 +263,15 @@ def compute_features(dataloader, model, N, device):
         if args['verbose'] and (i % 200) == 0:
             print(f"{i}/{len(dataloader)}\tTime: {batch_time.val:.3f} ({batch_time.avg:.3f})")
 
+    
+
     return features
 
 
 
 
 def train(loader, model, criterion, optimizer, epoch, device):
-    """Train the CNN."""
+    """Train the CNN with multiple passes over the training set."""
     batch_time = AverageMeter()
     losses = AverageMeter()
     data_time = AverageMeter()
@@ -261,6 +284,10 @@ def train(loader, model, criterion, optimizer, epoch, device):
         lr=args['lr'],
         weight_decay=10 ** args['wd'],
     )
+    # optimizer_tl = torch.optim.Adam(
+    #     model.top_layer.parameters(),
+    #     lr=args['lr']
+    # )
 
     end = time.time()
     for i, (input_tensor, target) in enumerate(loader):
@@ -294,13 +321,14 @@ def train(loader, model, criterion, optimizer, epoch, device):
         end = time.time()
 
         if args['verbose'] and (i % 200) == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data: {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss: {loss.val:.4f} ({loss.avg:.4f})'
-                  'Accuracy: {accuracy:.4f}'
-                  .format(epoch, i, len(loader), batch_time=batch_time,
-                          data_time=data_time, loss=losses, accuracy=accuracy))
+            print(' Epoch: [{0}][{1}/{2}]\t'
+                    'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                    'Data: {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                    'Loss: {loss.val:.4f} ({loss.avg:.4f})\t'
+                    'Accuracy: {accuracy:.4f}'
+                    .format(epoch, i, len(loader),
+                            batch_time=batch_time, data_time=data_time,
+                            loss=losses, accuracy=accuracy))
 
     return losses.avg
 

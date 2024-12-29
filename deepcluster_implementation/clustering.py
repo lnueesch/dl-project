@@ -70,7 +70,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
 
     # Redraw the figure
     fig.tight_layout()
-    plt.pause(0.001)
+    plt.pause(0.1)
 
 def pil_loader(path):
     """Loads an image (for demonstration)."""
@@ -119,7 +119,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.imgs)
 
 
-def preprocess_features(npdata, pca=8):
+def preprocess_features(npdata, pca=32):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
     print("ndim: ", ndim)
@@ -256,7 +256,7 @@ def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
         index = faiss.IndexFlatL2(d)
 
     clus.seed = np.random.randint(1234)
-    clus.niter = 10
+    clus.niter = 20
     clus.max_points_per_centroid = n_data // 3
     clus.train(xb, index)
     _, I = index.search(xb, 1)
