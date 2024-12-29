@@ -145,10 +145,10 @@ def preprocess_features(npdata, pca=32):
         raise ValueError("NaN or Inf detected in preprocessed features.")
 
     # L2 normalization
-    row_sums = np.linalg.norm(npdata, axis=1)
-    if np.any(row_sums == 0):
-        raise ValueError("L2 normalization failed due to a zero-row norm.")
-    npdata = npdata / row_sums[:, np.newaxis]
+    # row_sums = np.linalg.norm(npdata, axis=1)
+    # if np.any(row_sums == 0):
+    #     raise ValueError("L2 normalization failed due to a zero-row norm.")
+    # npdata = npdata / row_sums[:, np.newaxis]
 
     # Final check
     if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
@@ -256,7 +256,7 @@ def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
         index = faiss.IndexFlatL2(d)
 
     clus.seed = np.random.randint(1234)
-    clus.niter = 20
+    clus.niter = 50
     clus.max_points_per_centroid = n_data // 3
     clus.train(xb, index)
     _, I = index.search(xb, 1)

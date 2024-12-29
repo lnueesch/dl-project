@@ -36,7 +36,7 @@ class LogisticRegression(nn.Module):
         super(LogisticRegression, self).__init__()
         if conv == 1:
             self.av_pool = nn.AvgPool2d(4, stride=4, padding=0)
-            s = 1568
+            s = 288
         elif conv == 2:
             self.av_pool = nn.AvgPool2d(3, stride=3, padding=0)
             s = 9216

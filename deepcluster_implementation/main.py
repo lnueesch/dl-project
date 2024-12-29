@@ -22,7 +22,7 @@ args = {
     'sobel': False,
     'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 1e-1,
+    'lr': 5e-1,
     'wd': -5,
     'reassign': 10.0,
     'workers': 4,
@@ -34,7 +34,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
 }
 
@@ -62,11 +62,12 @@ def main(args):
     ])
 
     # Fraction of the dataset to use for testing
-    fraction = 1.0  # Use 10% of the dataset
+    # fraction = 0.7  # Use 10% of the dataset
 
     # Load MNIST dataset
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
-    dataset = Subset(dataset, random.sample(range(len(dataset)), int(fraction * len(dataset))))
+    dataset = Subset(dataset, np.arange(0, len(dataset), 1))
+    # dataset = Subset(dataset, random.sample(range(len(dataset)), int(fraction * len(dataset))))
 
     # print shape of a single sample
     print("sample shape: " + str(dataset[0][0].shape))
@@ -313,14 +314,14 @@ def train(loader, model, criterion, optimizer, epoch, device):
         optimizer.zero_grad()
         optimizer_tl.zero_grad()
         loss.backward()
-        optimizer.step()
+        # optimizer.step()
         optimizer_tl.step()
 
         # Measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args['verbose'] and (i % 200) == 0:
+        if args['verbose'] and (i % 100) == 0:
             print(' Epoch: [{0}][{1}/{2}]\t'
                     'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     'Data: {data_time.val:.3f} ({data_time.avg:.3f})\t'
