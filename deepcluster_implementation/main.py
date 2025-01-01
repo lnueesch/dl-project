@@ -25,7 +25,7 @@ args = {
     'lr': 5e-1,
     'wd': -5,
     'reassign': 10.0,
-    'workers': 4,
+    'workers': 2,
     'epochs': 50,
     'batch': 256,
     'momentum': 0.9,
@@ -34,7 +34,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
 }
 

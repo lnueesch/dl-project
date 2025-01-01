@@ -1,7 +1,7 @@
 .DS_Store
 papers/.DS_Store
 data
-deepcluster_implementation/experiment
+deepcluster_implementation/experiment/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
