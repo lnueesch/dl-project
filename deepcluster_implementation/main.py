@@ -26,7 +26,7 @@ args = {
     'wd': -5,
     'reassign': 10.0,
     'workers': 2,
-    'epochs': 50,
+    'epochs': 5,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',  # Path to checkpoint
