@@ -25,8 +25,8 @@ args = {
     'tencrops': False,
     'lr': 0.01,
     'batch_size': 256,
-    'epochs': 50,
-    'workers': 4,
+    'epochs': 5,
+    'workers': 2,
     'verbose': True,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu'
 }
@@ -36,7 +36,7 @@ class LogisticRegression(nn.Module):
         super(LogisticRegression, self).__init__()
         if conv == 1:
             self.av_pool = nn.AvgPool2d(4, stride=4, padding=0)
-            s = 288
+            s = 576 #288
         elif conv == 2:
             self.av_pool = nn.AvgPool2d(3, stride=3, padding=0)
             s = 9216

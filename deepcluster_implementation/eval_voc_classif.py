@@ -31,7 +31,7 @@ args = {
     'lr': 0.003,  # Learning rate
     'wd': 1e-6,  # Weight decay
     'batch_size': 256,
-    'workers': 4,
+    'workers': 2,
     'verbose': True,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
     'nit': 5,  # Number of training iterations

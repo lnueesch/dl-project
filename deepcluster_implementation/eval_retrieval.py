@@ -15,7 +15,7 @@ args = {
     'data': './data',  # Path to dataset
     'model': 'experiment/checkpoint.pth.tar',  # Path to model
     'batch_size': 256,
-    'workers': 4,
+    'workers': 2,
     'verbose': True,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
     'pca_components': 64,  # Number of PCA components
