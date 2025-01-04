@@ -11,6 +11,7 @@ import time
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+from active_semi_clustering.semi_supervised.pairwise_constraints import PCKMeans
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
@@ -25,7 +26,7 @@ from sklearn.manifold import TSNE
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-__all__ = ['PIC', 'Kmeans', 'cluster_assign', 'arrange_clustering']
+__all__ = ['PIC', 'Kmeans', 'PCKmeans', 'cluster_assign', 'arrange_clustering']
 
 def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None):
     """
@@ -223,7 +224,7 @@ def cluster_assign(images_lists, dataset):
     return ReassignedDataset(image_indexes, pseudolabels, dataset, t)
 
 
-def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
+def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'): 
     """
     Runs k-means on the given data (x). This function:
       1) Preprocesses (PCA, whiten, L2 norm)
@@ -302,6 +303,47 @@ def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
     return cluster_assignments.tolist(), loss/n_data
 
 
+def run_pckmeans(x, nmb_clusters, pairwise_constraints, verbose=False): 
+    """
+    Runs pck-means on the given data (x). This function:
+      1) Preprocesses (PCA, whiten, L2 norm)
+      2) Runs pck-means 
+    Args:
+        x (np.array): data of shape (N, dim)
+        nmb_clusters (int): number of clusters
+        pairwise_constraints: tupel with must-link and cannot-link constraints
+        verbose (bool): if True, prints progress
+    Returns:
+        I (list): cluster assignments for each sample
+        loss (float): final k-means loss
+    """
+    # -- FIX: reorder to avoid dimension mismatch --
+    # Step 1: Preprocess features
+    xb = preprocess_features(x)
+    n_data, d = xb.shape  # read dimension AFTER PCA
+    print("n_data: ", n_data)
+    
+    # Step 2: Perform PCKMeans clustering
+    print('Perform PCKMeans from sklearn')
+    pckmeans = PCKMeans(n_clusters=nmb_clusters)
+    pckmeans.fit(xb, ml=pairwise_constraints[0], cl=pairwise_constraints[1])
+    
+    # Retrieve cluster assignments and inertia (loss)
+    cluster_assignments = pckmeans.labels_
+    # loss = pckmeans.inertia_
+    loss = -1
+
+    # if verbose:
+    #     print('pck-means summed loss:', loss)
+
+    # Print distribution of samples over the centroids
+    unique, counts = np.unique(cluster_assignments, return_counts=True)
+    distribution = dict(zip(unique, counts))
+    print('Distribution of samples over centroids:', distribution)
+
+    return cluster_assignments.tolist(), loss
+
+
 def arrange_clustering(images_lists):
     """
     Convert cluster assignments (images_lists) into a single array aligned with the
@@ -359,6 +401,50 @@ class Kmeans(object):
 
         return loss
 
+class PCKmeans(object):
+    """
+    Simple PCK-means wrapper class. The `cluster` method:
+      - calls `run_pckmeans` exactly once
+      - stores images_lists for subsequent usage
+      - plots clustering results if `plot` flag is set
+    """
+    def __init__(self, k, device='cpu', plot=True, pairwise_constraints=None):
+        self.k = k # Number of clusters
+        self.device = device # Device to run k-means on
+        self.plot = plot  # New flag to enable/disable plotting
+        self.pairwise_constraints = pairwise_constraints
+
+    def cluster(self, fig, axes, x_data, true_labels=None, epoch=None, verbose=False):
+        """
+        Performs pck-means clustering on x_data.
+        Args:
+            x_data (np.array): Data to cluster of shape (N, dim)
+            true_labels (np.array): Ground truth labels (N,)
+            epoch (int): Current epoch (for annotation in plots)
+            verbose (bool): if True, prints debug info
+        """
+        end = time.time()
+
+        # Directly call run_pckmeans on x_data
+        I, loss = run_pckmeans(x_data, self.k, self.pairwise_constraints, verbose)
+
+        # Build images_lists, a list of lists: for each cluster, the assigned sample indices
+        self.images_lists = [[] for _ in range(self.k)]
+        for i in range(len(x_data)):
+            self.images_lists[I[i]].append(i)
+
+        if verbose:
+            elapsed = time.time() - end
+            print(f'pck-means time: {elapsed:.0f} s')
+
+        # Plot clusters if enabled
+        if self.plot and true_labels is not None and epoch is not None:
+            kmeans_labels = np.array(I)  # Cluster assignments
+            save_path = f"cluster_plot_epoch_{epoch}.png"  # Optional save path
+            plot_clusters(fig, axes, x_data, kmeans_labels, true_labels, self.k, epoch, save_path)
+
+        return loss
+    
 
 def make_adjacencyW(I, D, sigma):
     """
