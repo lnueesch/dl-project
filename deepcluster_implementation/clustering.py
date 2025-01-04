@@ -6,8 +6,11 @@
 #
 import time
 
-import faiss
-faiss.omp_set_num_threads(1)  # Use a single thread for debugging
+# import faiss
+# faiss.omp_set_num_threads(1)  # Use a single thread for debugging
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
@@ -134,11 +137,15 @@ def preprocess_features(npdata, pca=32):
         raise ValueError("Input data contains NaNs or infinite values.")
 
     # PCA-whitening with Faiss
-    mat = faiss.PCAMatrix(ndim, pca, eigen_power=-0.5)
-    mat.train(npdata)
-    if not mat.is_trained:
-        raise ValueError("PCA training failed; check the input data.")
-    npdata = mat.apply_py(npdata)
+    # mat = faiss.PCAMatrix(ndim, pca, eigen_power=-0.5)
+    # mat.train(npdata)
+    # if not mat.is_trained:
+    #     raise ValueError("PCA training failed; check the input data.")
+    # npdata = mat.apply_py(npdata)
+
+    # PCA-whitening
+    pca_model = PCA(n_components=pca, whiten=True)
+    npdata = pca_model.fit_transform(npdata)
 
     # Check again for NaN/infinite
     if np.any(np.isnan(npdata)) or np.any(np.isinf(npdata)):
@@ -166,29 +173,29 @@ def is_mps_available():
     return torch.backends.mps.is_available()
 
 
-def make_graph(xb, nnn, device):
-    """Builds a graph of nearest neighbors using Faiss, depending on the device."""
-    N, dim = xb.shape
-    if device == 'cuda' and is_gpu_available():
-        print('Using GPU for Faiss')
-        res = faiss.StandardGpuResources()
-        flat_config = faiss.GpuIndexFlatConfig()
-        flat_config.device = int(torch.cuda.current_device())
-        index = faiss.GpuIndexFlatL2(res, dim, flat_config)
-    elif device == 'mps' and is_mps_available():
-        # If MPS is available, attempt MPS usage (if Faiss supports MPS)
-        print('Using MPS for Faiss')
-        res = faiss.StandardGpuResources()
-        flat_config = faiss.GpuIndexFlatConfig()
-        flat_config.device = 0
-        index = faiss.GpuIndexFlatL2(res, dim, flat_config)
-    else:
-        print('Using CPU for Faiss')
-        index = faiss.IndexFlatL2(dim)
+# def make_graph(xb, nnn, device):
+#     """Builds a graph of nearest neighbors using Faiss, depending on the device."""
+#     N, dim = xb.shape
+#     if device == 'cuda' and is_gpu_available():
+#         print('Using GPU for Faiss')
+#         res = faiss.StandardGpuResources()
+#         flat_config = faiss.GpuIndexFlatConfig()
+#         flat_config.device = int(torch.cuda.current_device())
+#         index = faiss.GpuIndexFlatL2(res, dim, flat_config)
+#     elif device == 'mps' and is_mps_available():
+#         # If MPS is available, attempt MPS usage (if Faiss supports MPS)
+#         print('Using MPS for Faiss')
+#         res = faiss.StandardGpuResources()
+#         flat_config = faiss.GpuIndexFlatConfig()
+#         flat_config.device = 0
+#         index = faiss.GpuIndexFlatL2(res, dim, flat_config)
+#     else:
+#         print('Using CPU for Faiss')
+#         index = faiss.IndexFlatL2(dim)
 
-    index.add(xb)
-    D, I = index.search(xb, nnn + 1)
-    return I, D
+#     index.add(xb)
+#     D, I = index.search(xb, nnn + 1)
+#     return I, D
 
 
 def cluster_assign(images_lists, dataset):
@@ -237,43 +244,62 @@ def run_kmeans(x, nmb_clusters, verbose=False, device='cpu'):
     print("n_data: ", n_data)
 
     # Step 2: Perform Faiss k-means
-    if device == 'cuda' and is_gpu_available():
-        clus = faiss.Clustering(d, nmb_clusters)
-        res = faiss.StandardGpuResources()
-        flat_config = faiss.GpuIndexFlatConfig()
-        flat_config.device = int(torch.cuda.current_device())
-        index = faiss.GpuIndexFlatL2(res, d, flat_config)
-    elif device == 'mps' and is_mps_available():
-        print('Using MPS (Metal Performance Shaders) for Faiss')
-        clus = faiss.Clustering(d, nmb_clusters)
-        res = faiss.StandardGpuResources()
-        flat_config = faiss.GpuIndexFlatConfig()
-        flat_config.device = 0
-        index = faiss.GpuIndexFlatL2(res, d, flat_config)
-    else:
-        print('Using CPU for Faiss')
-        clus = faiss.Clustering(d, nmb_clusters)
-        index = faiss.IndexFlatL2(d)
+    # if device == 'cuda' and is_gpu_available():
+    #     clus = faiss.Clustering(d, nmb_clusters)
+    #     res = faiss.StandardGpuResources()
+    #     flat_config = faiss.GpuIndexFlatConfig()
+    #     flat_config.device = int(torch.cuda.current_device())
+    #     index = faiss.GpuIndexFlatL2(res, d, flat_config)
+    # elif device == 'mps' and is_mps_available():
+    #     print('Using MPS (Metal Performance Shaders) for Faiss')
+    #     clus = faiss.Clustering(d, nmb_clusters)
+    #     res = faiss.StandardGpuResources()
+    #     flat_config = faiss.GpuIndexFlatConfig()
+    #     flat_config.device = 0
+    #     index = faiss.GpuIndexFlatL2(res, d, flat_config)
+    # else:
+    #     print('Using CPU for Faiss')
+    #     clus = faiss.Clustering(d, nmb_clusters)
+    #     index = faiss.IndexFlatL2(d)
 
-    clus.seed = np.random.randint(1234)
-    clus.niter = 50
-    clus.max_points_per_centroid = n_data // 3
-    clus.train(xb, index)
-    _, I = index.search(xb, 1)
+    # clus.seed = np.random.randint(1234)
+    # clus.niter = 50
+    # clus.max_points_per_centroid = n_data // 3
+    # clus.train(xb, index)
+    # _, I = index.search(xb, 1)
 
-    stats = clus.iteration_stats
-    obj = np.array([stats.at(i).obj for i in range(stats.size())])
-    losses = obj
+    # stats = clus.iteration_stats
+    # obj = np.array([stats.at(i).obj for i in range(stats.size())])
+    # losses = obj
+    # if verbose:
+    #     print('k-means loss evolution:', losses)
+
+    # # Print distribution of samples over the centroids
+    # unique, counts = np.unique(I, return_counts=True)
+    # distribution = dict(zip(unique, counts))
+    # print('Distribution of samples over centroids:', distribution)
+
+    # I is shape (N,1), flatten it
+    # return [int(n[0]) for n in I], losses[-1]
+
+    # Step 2: Perform KMeans clustering
+    print('Perform KMeans from sklearn')
+    kmeans = KMeans(n_clusters=nmb_clusters, random_state=42, n_init='auto', max_iter=300)
+    kmeans.fit(xb)
+
+    # Retrieve cluster assignments and inertia (loss)
+    cluster_assignments = kmeans.labels_
+    loss = kmeans.inertia_
+
     if verbose:
-        print('k-means loss evolution:', losses)
+        print('k-means summed loss:', loss)
 
     # Print distribution of samples over the centroids
-    unique, counts = np.unique(I, return_counts=True)
+    unique, counts = np.unique(cluster_assignments, return_counts=True)
     distribution = dict(zip(unique, counts))
     print('Distribution of samples over centroids:', distribution)
 
-    # I is shape (N,1), flatten it
-    return [int(n[0]) for n in I], losses[-1]
+    return cluster_assignments.tolist(), loss/n_data
 
 
 def arrange_clustering(images_lists):
@@ -419,54 +445,54 @@ def find_maxima_cluster(W, v):
     return assign
 
 
-class PIC(object):
-    """
-    Power Iteration Clustering on an nnn-graph with a Gaussian kernel.
-    """
+# class PIC(object):
+#     """
+#     Power Iteration Clustering on an nnn-graph with a Gaussian kernel.
+#     """
 
-    def __init__(self, args=None, sigma=0.2, nnn=5, alpha=0.001, distribute_singletons=True):
-        self.sigma = sigma
-        self.alpha = alpha
-        self.nnn = nnn
-        self.distribute_singletons = distribute_singletons
+#     def __init__(self, args=None, sigma=0.2, nnn=5, alpha=0.001, distribute_singletons=True):
+#         self.sigma = sigma
+#         self.alpha = alpha
+#         self.nnn = nnn
+#         self.distribute_singletons = distribute_singletons
 
-    def cluster(self, fig, axes, data, verbose=False):
-        end = time.time()
+#     def cluster(self, fig, axes, data, verbose=False):
+#         end = time.time()
 
-        # 1) Preprocess data
-        xb = preprocess_features(data)
+#         # 1) Preprocess data
+#         xb = preprocess_features(data)
 
-        # 2) Construct nearest-neighbor graph
-        I, D = make_graph(xb, self.nnn, device='cpu')  # or device from args
+#         # 2) Construct nearest-neighbor graph
+#         I, D = make_graph(xb, self.nnn, device='cpu')  # or device from args
 
-        # 3) Run PIC
-        clust = run_pic(I, D, self.sigma, self.alpha)
-        images_lists_dict = {}
-        for h in set(clust):
-            images_lists_dict[h] = []
-        for idx, c in enumerate(clust):
-            images_lists_dict[c].append(idx)
+#         # 3) Run PIC
+#         clust = run_pic(I, D, self.sigma, self.alpha)
+#         images_lists_dict = {}
+#         for h in set(clust):
+#             images_lists_dict[h] = []
+#         for idx, c in enumerate(clust):
+#             images_lists_dict[c].append(idx)
 
-        # 4) Optionally reassign singletons
-        if self.distribute_singletons:
-            clust_NN = {}
-            for i in images_lists_dict:
-                if len(images_lists_dict[i]) == 1:
-                    s = images_lists_dict[i][0]
-                    for neighbor in I[s, 1:]:
-                        if len(images_lists_dict[clust[neighbor]]) != 1:
-                            clust_NN[s] = neighbor
-                            break
-            for s in clust_NN:
-                old_cluster = clust[s]
-                images_lists_dict[old_cluster].remove(s)
-                clust[s] = clust[clust_NN[s]]
-                images_lists_dict[clust[s]].append(s)
+#         # 4) Optionally reassign singletons
+#         if self.distribute_singletons:
+#             clust_NN = {}
+#             for i in images_lists_dict:
+#                 if len(images_lists_dict[i]) == 1:
+#                     s = images_lists_dict[i][0]
+#                     for neighbor in I[s, 1:]:
+#                         if len(images_lists_dict[clust[neighbor]]) != 1:
+#                             clust_NN[s] = neighbor
+#                             break
+#             for s in clust_NN:
+#                 old_cluster = clust[s]
+#                 images_lists_dict[old_cluster].remove(s)
+#                 clust[s] = clust[clust_NN[s]]
+#                 images_lists_dict[clust[s]].append(s)
 
-        self.images_lists = []
-        for c in images_lists_dict:
-            self.images_lists.append(images_lists_dict[c])
+#         self.images_lists = []
+#         for c in images_lists_dict:
+#             self.images_lists.append(images_lists_dict[c])
 
-        if verbose:
-            print('pic time: {0:.0f} s'.format(time.time() - end))
-        return 0
+#         if verbose:
+#             print('pic time: {0:.0f} s'.format(time.time() - end))
+#         return 0
