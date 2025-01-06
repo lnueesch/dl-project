@@ -62,9 +62,11 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
     unique_labels = np.unique(true_labels)
     for label in unique_labels:
         label_indices = (true_labels == label)
-        axes[1].scatter(reduced_features[label_indices, 0],
-                        reduced_features[label_indices[1]],
-                        label=f"Label {label}", alpha=0.6)
+        axes[1].scatter(
+            reduced_features[label_indices, 0],
+            reduced_features[label_indices, 1],
+            label=f"Label {label}", alpha=0.6
+        )
     axes[1].set_title(f"True Labels (Epoch {epoch})")
     axes[1].legend()
 
@@ -809,19 +811,26 @@ class PCKmeans:
         A TSNE-based plot for cluster assignments vs. true labels.
         Highlights labeled samples and constraint violations within the plotted subset.
         """
-        fraction = 0.05
+        # force inclusion of labeled samples
+        labeled_array = np.array(list(self.labeled_indices))
+        labeled_array = labeled_array[labeled_array < features.shape[0]]  # clamp any out-of-range
         n_samples = features.shape[0]
+        fraction = 0.05
         n_subset = int(fraction * n_samples)
-
         rng = np.random.default_rng()
-        subset_idx = rng.choice(n_samples, size=n_subset, replace=False)
-        subset_idx_set = set(subset_idx)  # for faster lookups
+
+        # pick the remaining random subset from unlabeled
+        unlabeled_array = np.setdiff1d(np.arange(n_samples), labeled_array)
+        n_random = max(0, n_subset - len(labeled_array))
+        random_samples = rng.choice(unlabeled_array, size=n_random, replace=False) if n_random else np.array([], dtype=int)
+        subset_idx = np.concatenate([labeled_array, random_samples])
+        subset_idx_set = set(subset_idx)
 
         X_2d = TSNE(n_components=2, random_state=42).fit_transform(features[subset_idx])
         sub_assign = cluster_labels[subset_idx]
         sub_true = true_labels[subset_idx]
 
-        # Create mapping from original indices to subset indices
+        # create mapping from original idx to subset idx
         orig_to_subset = {orig: sub for sub, orig in enumerate(subset_idx)}
 
         # Clear old axes
@@ -891,7 +900,7 @@ class PCKmeans:
         axes[0].legend(handles=legend_elements, loc='upper right')
 
         fig.tight_layout()
-        plt.pause(0.5)
+        plt.pause(2)
 
 
 

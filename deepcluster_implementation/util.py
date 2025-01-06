@@ -82,8 +82,8 @@ def create_sparse_labels(dataset, fraction=0.01, pattern="random", noise=0.0, se
 
 def build_constraints_from_partial_data(dataset, must_link_mode="same_label", 
                                       cannot_link_mode="diff_label", 
-                                      max_pairs=1000, 
-                                      cannot_link_fraction=0.1,  # NEW: only use 10% of cannot-link
+                                      max_pairs=1e6,  # Increased default to allow more constraints
+                                      cannot_link_fraction=1.0,  
                                       seed=42):
     """
     Create pairwise constraints from a partially labeled dataset.
@@ -137,17 +137,58 @@ def build_constraints_from_partial_data(dataset, must_link_mode="same_label",
                     for id_j in label_to_indices[lbl_j]:
                         all_cannot_links.append((id_i, id_j))
         
+        # Debug print
+        print(f"Total possible cannot-links: {len(all_cannot_links)}")
+        print(f"Using fraction: {cannot_link_fraction}")
+        
         # Randomly sample a fraction of cannot-link constraints
         rng.shuffle(all_cannot_links)
         n_cannot_links = min(
             int(len(all_cannot_links) * cannot_link_fraction),
             max_pairs
         )
+        print(f"Selected {n_cannot_links} cannot-link constraints")
         cannot_link_pairs = all_cannot_links[:n_cannot_links]
+
+    # Analyze expected numbers:
+    label_sizes = {lbl: len(indices) for lbl, indices in label_to_indices.items()}
+    
+    expected_must_link = sum(n * (n-1) // 2 for n in label_sizes.values())
+    expected_cannot_link = sum(
+        n1 * n2 
+        for i, (_, n1) in enumerate(label_sizes.items())
+        for j, (_, n2) in enumerate(label_sizes.items())
+        if i < j
+    )
+    
+    print(f"\nConstraint Analysis:")
+    print(f"Labels and counts: {label_sizes}")
+    print(f"Expected must-link pairs: {expected_must_link}")
+    print(f"Expected cannot-link pairs: {expected_cannot_link}")
+    print(f"Actual must-link pairs: {len(must_link_pairs)}")
+    print(f"Actual cannot-link pairs: {len(cannot_link_pairs)}")
+    
+    # Double check our cannot-link generation:
+    all_cannot_links = []
+    for lbl1, indices1 in label_to_indices.items():
+        for lbl2, indices2 in label_to_indices.items():
+            if lbl1 >= lbl2:  # Skip same label and duplicates
+                continue
+            for i in indices1:
+                for j in indices2:
+                    all_cannot_links.append((i, j))
+    
+    # Take specified fraction
+    n_cannot_links = int(len(all_cannot_links) * cannot_link_fraction)
+    rng.shuffle(all_cannot_links)
+    cannot_link_pairs = all_cannot_links[:n_cannot_links]
+    
+    print(f"Total possible cannot-links found: {len(all_cannot_links)}")
+    print(f"Using fraction {cannot_link_fraction} -> selecting {n_cannot_links}")
 
     if len(must_link_pairs) > 0 or len(cannot_link_pairs) > 0:
         print(f"Generated {len(must_link_pairs)} must-link and {len(cannot_link_pairs)} cannot-link constraints")
-        print(f"Ratio cannot-link/must-link: {len(cannot_link_pairs)/max(1, len(must_link_pairs)):.2f}")
+        print(f"Ratio cannot-link/must-link: {len(cannot_link_pairs)/len(must_link_pairs):.2f}")
 
     constraints = {
         'must_link': must_link_pairs,

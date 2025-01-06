@@ -36,8 +36,8 @@ args = {
     'verbose': True,
     'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
-    'label_fraction': 0.1,  # Fraction of the dataset to use for testing
-    'cannot_link_fraction': 1.  # Only use 10% of possible cannot-link constraints
+    'label_fraction': 0.01,  # Fraction of the dataset to use for testing
+    'cannot_link_fraction': 0.1  # This is the fraction you want to use (1.0 = all constraints)
 }
 
 def main(args):
@@ -97,8 +97,8 @@ def main(args):
         partial_labeled_data,
         must_link_mode="same_label",
         cannot_link_mode="diff_label",
-        max_pairs=500,
-        cannot_link_fraction=args['cannot_link_fraction'],
+        max_pairs=int(1e6),  # Much larger limit
+        cannot_link_fraction=args['cannot_link_fraction'],  # Make sure this is being passed correctly
         seed=2024
     )
 
@@ -175,6 +175,7 @@ def main(args):
 
     # Start Training
     for epoch in range(args['epochs']):
+        start_epoch_time = time.time()
         # Remove head
         model.top_layer = None
         model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
@@ -227,7 +228,7 @@ def main(args):
                   'Time: {1:.3f} s\n'
                   'Clustering loss: {2:.3f} \n'
                   'ConvNet loss: {3:.3f}'
-                  .format(epoch, time.time() - end, clustering_loss, loss))
+                  .format(epoch, time.time() - start_epoch_time, clustering_loss, loss))
             try:
                 nmi = normalized_mutual_info_score(
                     clustering.arrange_clustering(deepcluster.images_lists),
