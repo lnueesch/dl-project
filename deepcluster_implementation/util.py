@@ -48,79 +48,43 @@ def load_model(path):
 
 
 
-def create_sparse_labels(dataset, fraction=0.1, pattern="random", noise=0.0, seed=42):
-    """
-    Create a partially labeled dataset from a fully labeled dataset.
-    
-    Args:
-        dataset: a PyTorch Dataset where dataset[i] = (image, label)
-        fraction (float): fraction of labels we want to *keep* (e.g., 0.1 means 10%).
-        pattern (str): "random", "missing_classes", or custom logic
-        noise (float): fraction of kept labels that we corrupt (0.0 means no noise)
-        seed (int): random seed for reproducibility
-
-    Returns:
-        new_dataset: a list or custom dataset of (image, label) where label==-1 means unlabeled
-    """
+def create_sparse_labels(dataset, fraction=0.01, pattern="random", noise=0.0, seed=42):
     rng = random.Random(seed)
     total_size = len(dataset)
-
-    # Convert dataset to list for easy manipulation
-    data_list = [(dataset[i][0], dataset[i][1]) for i in range(total_size)]
     
-    if pattern == "random":
-        # random subset of labeled indices
-        n_labeled = int(fraction * total_size)
-        labeled_indices = rng.sample(range(total_size), n_labeled)
-        labeled_indices = set(labeled_indices)
-    elif pattern == "missing_classes":
-        # e.g. remove all labels for half the classes
-        # This is just an example; adapt as needed.
-        # Let's find unique classes:
-        all_labels = [label for (_, label) in data_list]
-        classes = list(set(all_labels))
-        rng.shuffle(classes)
-        half = len(classes) // 2
-        unlabeled_classes = set(classes[:half])
-        
-        labeled_indices = []
-        for i, (img, lbl) in enumerate(data_list):
-            if lbl not in unlabeled_classes:
-                labeled_indices.append(i)
-        labeled_indices = set(labeled_indices)
-        
-        # You could also keep fraction within those classes, etc.
-    else:
-        # fallback or custom pattern
-        labeled_indices = set(range(total_size))  # by default label all
+    # Create clean labeled dataset first
+    labeled_indices = set(rng.sample(range(total_size), int(fraction * total_size)))
     
-    # Build new dataset with partial labels
-    new_dataset = []
-    for i, (img, lbl) in enumerate(data_list):
-        if i not in labeled_indices:
-            # remove label
-            new_dataset.append((img, -1))
-        else:
-            # keep label
-            new_dataset.append((img, lbl))
+    # Initialize all labels as -1 (unlabeled)
+    new_labels = [-1] * total_size
     
-    # Introduce noise in the kept labels (optional)
+    # First assign correct labels
+    for idx in labeled_indices:
+        _, label = dataset[idx]
+        new_labels[idx] = label
+    
+    # Then apply noise to a subset if requested
     if noise > 0.0:
-        # the portion of labeled samples we will corrupt
-        # e.g., noise=0.1 means 10% of the labeled samples get assigned random label
-        labeled_inds_list = list(labeled_indices)
-        rng.shuffle(labeled_inds_list)
-        n_noisy = int(noise * len(labeled_inds_list))
-        noisy_part = labeled_inds_list[:n_noisy]
-        all_possible_labels = list(set([l for (x, l) in data_list]))
-        for idx in noisy_part:
-            # pick a random label from all_possible_labels (could exclude the true one if desired)
-            corrupted_lbl = rng.choice(all_possible_labels)
-            new_dataset[idx] = (new_dataset[idx][0], corrupted_lbl)
+        noisy_count = int(len(labeled_indices) * noise)
+        noisy_indices = rng.sample(list(labeled_indices), noisy_count)
+        
+        all_labels = list(range(10))  # MNIST has 10 classes
+        for idx in noisy_indices:
+            true_label = new_labels[idx]
+            possible_wrong = [l for l in all_labels if l != true_label]
+            new_labels[idx] = rng.choice(possible_wrong)
+            print(f"Noise applied: idx={idx}, true={true_label} -> noisy={new_labels[idx]}")
+    
+    # Create new dataset with these labels
+    new_dataset = [(dataset[i][0], new_labels[i]) for i in range(total_size)]
+    
+    return new_dataset, labeled_indices
 
-    return new_dataset
-
-def build_constraints_from_partial_data(dataset, must_link_mode="same_label", cannot_link_mode="diff_label", max_pairs=1000, seed=42):
+def build_constraints_from_partial_data(dataset, must_link_mode="same_label", 
+                                      cannot_link_mode="diff_label", 
+                                      max_pairs=1000, 
+                                      cannot_link_fraction=0.1,  # NEW: only use 10% of cannot-link
+                                      seed=42):
     """
     Create pairwise constraints from a partially labeled dataset.
     Args:
@@ -128,6 +92,7 @@ def build_constraints_from_partial_data(dataset, must_link_mode="same_label", ca
         must_link_mode (str): "same_label" => any pair with same label becomes must-link
         cannot_link_mode (str): "diff_label" => any pair with different label => cannot-link
         max_pairs (int): how many pairs to sample to keep constraints manageable
+        cannot_link_fraction (float): fraction of possible cannot-link constraints to use
         seed (int): random seed
     Returns:
         constraints: dict with 'must_link', 'cannot_link' lists of (i, j) pairs
@@ -139,14 +104,14 @@ def build_constraints_from_partial_data(dataset, must_link_mode="same_label", ca
     must_link_pairs = []
     cannot_link_pairs = []
 
-    # Simple approach: group labeled samples by label
+    # Group labeled samples by label
     from collections import defaultdict
     label_to_indices = defaultdict(list)
     for i in labeled_indices:
         label = dataset[i][1]
         label_to_indices[label].append(i)
 
-    # Build must_link for samples with same label
+    # Build must_link for samples with same label (keep all of these)
     for lbl, indices in label_to_indices.items():
         if len(indices) > 1:
             # sample pairs among these indices
@@ -156,30 +121,39 @@ def build_constraints_from_partial_data(dataset, must_link_mode="same_label", ca
                     all_pairs.append((indices[i1], indices[i2]))
             # shuffle & possibly limit number
             rng.shuffle(all_pairs)
-            must_link_pairs.extend(all_pairs[:max_pairs])  # or you can do some fraction
+            must_link_pairs.extend(all_pairs[:max_pairs])
 
     # Build cannot_link for samples with different labels
-    # This can grow huge. We'll randomly sample across labels
+    # But only use a fraction of possible cannot-link constraints
     all_labels = list(label_to_indices.keys())
     if len(all_labels) > 1:
+        all_cannot_links = []
         for i in range(len(all_labels)):
             for j in range(i+1, len(all_labels)):
                 lbl_i = all_labels[i]
                 lbl_j = all_labels[j]
                 # all cross pairs
-                cross_pairs = []
                 for id_i in label_to_indices[lbl_i]:
                     for id_j in label_to_indices[lbl_j]:
-                        cross_pairs.append((id_i, id_j))
-                rng.shuffle(cross_pairs)
-                cannot_link_pairs.extend(cross_pairs[:max_pairs])
+                        all_cannot_links.append((id_i, id_j))
+        
+        # Randomly sample a fraction of cannot-link constraints
+        rng.shuffle(all_cannot_links)
+        n_cannot_links = min(
+            int(len(all_cannot_links) * cannot_link_fraction),
+            max_pairs
+        )
+        cannot_link_pairs = all_cannot_links[:n_cannot_links]
+
+    if len(must_link_pairs) > 0 or len(cannot_link_pairs) > 0:
+        print(f"Generated {len(must_link_pairs)} must-link and {len(cannot_link_pairs)} cannot-link constraints")
+        print(f"Ratio cannot-link/must-link: {len(cannot_link_pairs)/max(1, len(must_link_pairs)):.2f}")
 
     constraints = {
         'must_link': must_link_pairs,
         'cannot_link': cannot_link_pairs
     }
     return constraints
-
 
 
 class UnifLabelSampler(Sampler):

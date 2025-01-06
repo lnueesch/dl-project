@@ -22,9 +22,9 @@ args = {
     'sobel': False,
     'clustering': 'PCKmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 5e-1,
+    'lr': 5e-2,
     'wd': -5,
-    'reassign': 10.0,
+    'reassign': 1.0,
     'workers': 4,
     'epochs': 50,
     'batch': 256,
@@ -36,6 +36,8 @@ args = {
     'verbose': True,
     'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
+    'label_fraction': 0.1,  # Fraction of the dataset to use for testing
+    'cannot_link_fraction': 1.  # Only use 10% of possible cannot-link constraints
 }
 
 def main(args):
@@ -66,30 +68,56 @@ def main(args):
 
     # Load MNIST dataset
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
-    dataset = Subset(dataset, np.arange(0, len(dataset), 1))
-    # dataset = Subset(dataset, random.sample(range(len(dataset)), int(fraction * len(dataset))))
-
-
-    # Create partially labeled dataset
+    
+    # PROBLEMATIC: This could cause index misalignment
+    # dataset = Subset(dataset, np.arange(0, len(dataset), 1))
+    
+    # Create partially labeled dataset BEFORE any subsetting
     if args['verbose']:
         print('Creating partially labeled dataset and constraints')
-    partial_labeled_data = create_sparse_labels(
+    partial_labeled_data, labeled_indices = create_sparse_labels(
         dataset,
-        fraction=0.05,  # only 5% labeled
+        fraction=args['label_fraction'], 
         pattern="random",
-        noise=0.1,      # 10% of those 5% are wrong
+        noise=0.0,
         seed=2024
     )
+
+    # Print some sanity checks
+    print(f"First few labeled indices: {sorted(list(labeled_indices))[:5]}")
+    print(f"Number of labeled samples: {len(labeled_indices)}")
+    
+    # Verify labels match
+    for idx in list(labeled_indices)[:5]:
+        orig_label = dataset[idx][1]
+        partial_label = partial_labeled_data[idx][1]
+        print(f"Index {idx}: Original label = {orig_label}, Partial label = {partial_label}")
 
     constraints = build_constraints_from_partial_data(
         partial_labeled_data,
         must_link_mode="same_label",
         cannot_link_mode="diff_label",
         max_pairs=500,
+        cannot_link_fraction=args['cannot_link_fraction'],
         seed=2024
     )
 
+    # Verify constraints
+    print("\nConstraint Verification:")
+    must_link = constraints['must_link']
+    cannot_link = constraints['cannot_link']
+    
+    print(f"\nChecking first few must-link constraints:")
+    for i, j in must_link[:5]:
+        label_i = partial_labeled_data[i][1]
+        label_j = partial_labeled_data[j][1]
+        print(f"Must-link pair ({i},{j}): labels = {label_i}, {label_j}")
 
+    print(f"\nChecking first few cannot-link constraints:")
+    for i, j in cannot_link[:5]:
+        label_i = partial_labeled_data[i][1]
+        label_j = partial_labeled_data[j][1]
+        print(f"Cannot-link pair ({i},{j}): labels = {label_i}, {label_j}")
 
     # print shape of a single sample
     print("sample shape: " + str(dataset[0][0].shape))
@@ -132,10 +160,11 @@ def main(args):
     criterion = nn.CrossEntropyLoss().to(device)
 
     # Clustering
-    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], 
-                                                          device, 
+    deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
+                                                          device=device, 
                                                           plot=args['plot_clusters'], 
-                                                          constraints=constraints)
+                                                          constraints=constraints,
+                                                          labeled_indices=labeled_indices)
 
     # Logging setup
     cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
@@ -165,7 +194,7 @@ def main(args):
         # Assign pseudo-labels
         if args['verbose']:
             print('Assigning pseudo labels')
-        train_dataset = clustering.cluster_assign(deepcluster.images_lists, dataset.dataset)
+        train_dataset = clustering.cluster_assign(deepcluster.images_lists, dataset)
 
 
         # Uniformly sample targets
@@ -207,6 +236,11 @@ def main(args):
                 print('NMI against previous assignment: {0:.3f}'.format(nmi))
             except IndexError:
                 pass
+            nmi_true = normalized_mutual_info_score(
+                clustering.arrange_clustering(deepcluster.images_lists),
+                true_labels
+            )
+            print('NMI against true labels: {0:.3f}'.format(nmi_true))
             print('####################### \n')
         # save running checkpoint
         torch.save({'epoch': epoch + 1,
@@ -339,7 +373,7 @@ def train(loader, model, criterion, optimizer, epoch, device):
         optimizer.zero_grad()
         optimizer_tl.zero_grad()
         loss.backward()
-        # optimizer.step()
+        optimizer.step()
         optimizer_tl.step()
 
         # Measure elapsed time
