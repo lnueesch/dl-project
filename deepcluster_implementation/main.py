@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
 from torchvision.datasets import MNIST
 import clustering
-from util import AverageMeter, Logger, UnifLabelSampler, create_sparse_labels, build_constraints_from_partial_data
+from util import AverageMeter, Logger, UnifLabelSampler, create_sparse_labels, create_constraints
 import models
 import os
 import random
@@ -21,6 +21,7 @@ args = {
     'arch': 'simplecnn',  # Model architecture
     'sobel': False,
     'clustering': 'PCKmeans',
+    # 'clustering': 'Kmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
     'lr': 5e-2,
     'wd': -5,
@@ -36,7 +37,7 @@ args = {
     'verbose': True,
     'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
-    'label_fraction': 0.01,  # Fraction of the dataset to use for testing
+    'label_fraction': 0.001,  # Fraction of the dataset to use for testing
     'cannot_link_fraction': 0.1  # This is the fraction you want to use (1.0 = all constraints)
 }
 
@@ -74,7 +75,7 @@ def main(args):
     
     # Create partially labeled dataset BEFORE any subsetting
     if args['verbose']:
-        print('Creating partially labeled dataset and constraints')
+        print('Creating partially labeled dataset')
     partial_labeled_data, labeled_indices = create_sparse_labels(
         dataset,
         fraction=args['label_fraction'], 
@@ -83,48 +84,26 @@ def main(args):
         seed=2024
     )
 
-    # Print some sanity checks
-    print(f"First few labeled indices: {sorted(list(labeled_indices))[:5]}")
-    print(f"Number of labeled samples: {len(labeled_indices)}")
-    
-    # Verify labels match
-    for idx in list(labeled_indices)[:5]:
-        orig_label = dataset[idx][1]
-        partial_label = partial_labeled_data[idx][1]
-        print(f"Index {idx}: Original label = {orig_label}, Partial label = {partial_label}")
-
-    constraints = build_constraints_from_partial_data(
-        partial_labeled_data,
-        must_link_mode="same_label",
-        cannot_link_mode="diff_label",
-        max_pairs=int(1e6),  # Much larger limit
-        cannot_link_fraction=args['cannot_link_fraction'],  # Make sure this is being passed correctly
+    if args['verbose']:
+        print('Creating constraints')
+    constraints = create_constraints(
+        dataset,
+        labeled_indices,
+        cl_fraction=args['cannot_link_fraction'],
+        ml_fraction=1,
         seed=2024
     )
 
-    # Verify constraints
-    print("\nConstraint Verification:")
-    must_link = constraints['must_link']
-    cannot_link = constraints['cannot_link']
-    
-    print(f"\nChecking first few must-link constraints:")
-    for i, j in must_link[:5]:
-        label_i = partial_labeled_data[i][1]
-        label_j = partial_labeled_data[j][1]
-        print(f"Must-link pair ({i},{j}): labels = {label_i}, {label_j}")
-
-    print(f"\nChecking first few cannot-link constraints:")
-    for i, j in cannot_link[:5]:
-        label_i = partial_labeled_data[i][1]
-        label_j = partial_labeled_data[j][1]
-        print(f"Cannot-link pair ({i},{j}): labels = {label_i}, {label_j}")
+    print("Number of ml constraints:", len(constraints[0]))
+    print("Number of cl constraints:", len(constraints[1]))
 
     # print shape of a single sample
     print("sample shape: " + str(dataset[0][0].shape))
 
     # DataLoader
     train_loader = DataLoader(
-        dataset,
+        # dataset,
+        partial_labeled_data,
         batch_size=args['batch'],
         num_workers=args['workers'],
         shuffle=False,

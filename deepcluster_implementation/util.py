@@ -80,121 +80,97 @@ def create_sparse_labels(dataset, fraction=0.01, pattern="random", noise=0.0, se
     
     return new_dataset, labeled_indices
 
-def build_constraints_from_partial_data(dataset, must_link_mode="same_label", 
-                                      cannot_link_mode="diff_label", 
-                                      max_pairs=1e6,  # Increased default to allow more constraints
-                                      cannot_link_fraction=1.0,  
-                                      seed=42):
+import random
+from collections import defaultdict
+
+import random
+from collections import defaultdict
+from itertools import combinations
+
+def create_constraints(dataset, labeled_indices, cl_fraction=1.0, ml_fraction=1.0, seed=42):
     """
-    Create pairwise constraints from a partially labeled dataset.
-    Args:
-        dataset: list of (image, label), where label == -1 means unlabeled
-        must_link_mode (str): "same_label" => any pair with same label becomes must-link
-        cannot_link_mode (str): "diff_label" => any pair with different label => cannot-link
-        max_pairs (int): how many pairs to sample to keep constraints manageable
-        cannot_link_fraction (float): fraction of possible cannot-link constraints to use
-        seed (int): random seed
-    Returns:
-        constraints: dict with 'must_link', 'cannot_link' lists of (i, j) pairs
+    Create must-link and cannot-link constraints from a semi-supervised dataset.
+
+    Parameters
+    ----------
+    dataset : Sequence
+        A dataset where each item is (image, label). Labels are accessed via dataset[idx][1].
+    labeled_indices : list of int
+        The indices for which the labels are known (the semi-supervised subset).
+    cl_fraction : float, optional
+        Fraction of all possible cannot-link constraints to include (default=1.0).
+    seed : int, optional
+        Seed for random number generator, for reproducibility.
+
+    Returns
+    -------
+    must_links : list of tuple(int, int)
+        List of index pairs (i, j) that must link (i.e., have the same label).
+    cannot_links : list of tuple(int, int)
+        List of index pairs (i, j) that cannot link (i.e., have different labels),
+        sampled at the specified fraction of all possible pairs.
     """
-    import random
-    rng = random.Random(seed)
-    labeled_indices = [i for i, (_, lbl) in enumerate(dataset) if lbl != -1]
-    
-    must_link_pairs = []
-    cannot_link_pairs = []
+    if seed is not None:
+        random.seed(seed)
 
-    # Group labeled samples by label
-    from collections import defaultdict
-    label_to_indices = defaultdict(list)
-    for i in labeled_indices:
-        label = dataset[i][1]
-        label_to_indices[label].append(i)
+    # 1) Group labeled indices by their label.
+    label_dict = defaultdict(list)
+    for idx in labeled_indices:
+        # label is the second element in dataset[idx]
+        lbl = dataset[idx][1]
+        label_dict[lbl].append(idx)
 
-    # Build must_link for samples with same label (keep all of these)
-    for lbl, indices in label_to_indices.items():
-        if len(indices) > 1:
-            # sample pairs among these indices
-            all_pairs = []
-            for i1 in range(len(indices)):
-                for i2 in range(i1+1, len(indices)):
-                    all_pairs.append((indices[i1], indices[i2]))
-            # shuffle & possibly limit number
-            rng.shuffle(all_pairs)
-            must_link_pairs.extend(all_pairs[:max_pairs])
+    # 2) Construct all must-link constraints.
+    #    For each label, create pairwise combinations among indices having that label.
+    must_links = []
+    for lbl, idxs in label_dict.items():
+        # Only need combinations if there are at least 2 indices for this label
+        if len(idxs) > 1:
+            must_links.extend(combinations(idxs, 2))
 
-    # Build cannot_link for samples with different labels
-    # But only use a fraction of possible cannot-link constraints
-    all_labels = list(label_to_indices.keys())
-    if len(all_labels) > 1:
-        all_cannot_links = []
-        for i in range(len(all_labels)):
-            for j in range(i+1, len(all_labels)):
-                lbl_i = all_labels[i]
-                lbl_j = all_labels[j]
-                # all cross pairs
-                for id_i in label_to_indices[lbl_i]:
-                    for id_j in label_to_indices[lbl_j]:
-                        all_cannot_links.append((id_i, id_j))
-        
-        # Debug print
-        print(f"Total possible cannot-links: {len(all_cannot_links)}")
-        print(f"Using fraction: {cannot_link_fraction}")
-        
-        # Randomly sample a fraction of cannot-link constraints
-        rng.shuffle(all_cannot_links)
-        n_cannot_links = min(
-            int(len(all_cannot_links) * cannot_link_fraction),
-            max_pairs
-        )
-        print(f"Selected {n_cannot_links} cannot-link constraints")
-        cannot_link_pairs = all_cannot_links[:n_cannot_links]
+    # 3) Construct cannot-link constraints across labels.
+    #    We'll sample them so that we only take 'cl_fraction' of all possible cross-label pairs.
+    cannot_links = []
+    all_labels = sorted(label_dict.keys())
+    for i in range(len(all_labels)):
+        for j in range(i + 1, len(all_labels)):
+            lbl_i = all_labels[i]
+            lbl_j = all_labels[j]
 
-    # Analyze expected numbers:
-    label_sizes = {lbl: len(indices) for lbl, indices in label_to_indices.items()}
-    
-    expected_must_link = sum(n * (n-1) // 2 for n in label_sizes.values())
-    expected_cannot_link = sum(
-        n1 * n2 
-        for i, (_, n1) in enumerate(label_sizes.items())
-        for j, (_, n2) in enumerate(label_sizes.items())
-        if i < j
-    )
-    
-    print(f"\nConstraint Analysis:")
-    print(f"Labels and counts: {label_sizes}")
-    print(f"Expected must-link pairs: {expected_must_link}")
-    print(f"Expected cannot-link pairs: {expected_cannot_link}")
-    print(f"Actual must-link pairs: {len(must_link_pairs)}")
-    print(f"Actual cannot-link pairs: {len(cannot_link_pairs)}")
-    
-    # Double check our cannot-link generation:
-    all_cannot_links = []
-    for lbl1, indices1 in label_to_indices.items():
-        for lbl2, indices2 in label_to_indices.items():
-            if lbl1 >= lbl2:  # Skip same label and duplicates
+            idxs_i = label_dict[lbl_i]
+            idxs_j = label_dict[lbl_j]
+
+            # Possible cross-label pairs = cartesian product of idxs_i and idxs_j
+            n1, n2 = len(idxs_i), len(idxs_j)
+            total_pairs = n1 * n2
+            if total_pairs == 0:
                 continue
-            for i in indices1:
-                for j in indices2:
-                    all_cannot_links.append((i, j))
-    
-    # Take specified fraction
-    n_cannot_links = int(len(all_cannot_links) * cannot_link_fraction)
-    rng.shuffle(all_cannot_links)
-    cannot_link_pairs = all_cannot_links[:n_cannot_links]
-    
-    print(f"Total possible cannot-links found: {len(all_cannot_links)}")
-    print(f"Using fraction {cannot_link_fraction} -> selecting {n_cannot_links}")
 
-    if len(must_link_pairs) > 0 or len(cannot_link_pairs) > 0:
-        print(f"Generated {len(must_link_pairs)} must-link and {len(cannot_link_pairs)} cannot-link constraints")
-        print(f"Ratio cannot-link/must-link: {len(cannot_link_pairs)/len(must_link_pairs):.2f}")
+            # Number of cannot-link pairs to sample from this cross-label set
+            n_to_sample = int(cl_fraction * total_pairs)
+            # Edge case: if fraction is 0 or the rounding yields 0, skip
+            if n_to_sample <= 0:
+                continue
 
-    constraints = {
-        'must_link': must_link_pairs,
-        'cannot_link': cannot_link_pairs
-    }
-    return constraints
+            if n_to_sample >= total_pairs:
+                # Take all pairs (lbl_i vs lbl_j)
+                for id_i in idxs_i:
+                    for id_j in idxs_j:
+                        cannot_links.append((id_i, id_j))
+            else:
+                # Randomly sample 'n_to_sample' unique pairs without generating all first.
+                #   1) We represent each pair by an integer from 0..(total_pairs-1).
+                #   2) Then decode that integer back to (i1, i2).
+                chosen_indices = random.sample(range(total_pairs), n_to_sample)
+                for c in chosen_indices:
+                    i1 = c // n2
+                    i2 = c % n2
+                    cannot_links.append((idxs_i[i1], idxs_j[i2]))
+
+    return must_links, cannot_links
+
+
+
 
 
 class UnifLabelSampler(Sampler):
