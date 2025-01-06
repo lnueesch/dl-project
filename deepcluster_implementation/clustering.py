@@ -22,7 +22,7 @@ from sklearn.manifold import TSNE
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-__all__ = ['PIC', 'Kmeans', 'cluster_assign', 'arrange_clustering']
+__all__ = ['PIC', 'Kmeans', 'PCKmeans', 'cluster_assign', 'arrange_clustering']
 
 def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None):
     """
@@ -297,7 +297,7 @@ class Kmeans(object):
       - stores images_lists for subsequent usage
       - plots clustering results if `plot` flag is set
     """
-    def __init__(self, k, device='cpu', plot=True):
+    def __init__(self, k, device='cpu', plot=True, constraints=None):
         self.k = k # Number of clusters
         self.device = device # Device to run k-means on
         self.plot = plot  # New flag to enable/disable plotting
@@ -470,3 +470,274 @@ class PIC(object):
         if verbose:
             print('pic time: {0:.0f} s'.format(time.time() - end))
         return 0
+    
+
+import numpy as np
+from collections import defaultdict
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+
+class PCKmeans:
+    """
+    A Pairwise Constrained K-means (PCKmeans) implementation with:
+      1) Must-link constraints handled by merging connected components (Union-Find).
+      2) Cannot-link constraints checked at the supernode level.
+      3) Optional TSNE visualization of clusters vs. true labels.
+
+    constraints = {
+        'must_link': [(i1, i2), (i3, i4), ...],
+        'cannot_link': [(j1, j2), (j3, j4), ...]
+    }
+    """
+
+    def __init__(self, k, device='cpu', plot=True, constraints=None, max_iter=20):
+        """
+        Args:
+            k (int): number of clusters
+            device (str): 'cpu', 'cuda', or 'mps'—used if you need to move data
+            plot (bool): if True, will call _plot_clusters (TSNE)
+            constraints (dict): must_link/cannot_link pairs
+            max_iter (int): max number of iterations
+        """
+        self.k = k
+        self.device = device
+        self.plot = plot
+        self.constraints = constraints if constraints is not None else {}
+        self.max_iter = max_iter
+
+        # placeholders for final assignments and images_lists
+        self.images_lists = []
+
+    def cluster(self, fig, axes, x_data, true_labels=None, epoch=None, verbose=False):
+        """
+        Semi-supervised clustering with PCKmeans.
+        Steps:
+          1) Convert x_data to numpy if needed
+          2) Merge all must-linked samples into supernodes via Union-Find
+          3) For each supernode, compute a centroid
+          4) Iteratively assign supernodes to clusters, respecting cannot-link
+          5) Expand final supernode assignments back to per-sample assignments
+          6) Optionally plot with TSNE
+        Returns:
+            float: final sum of squared distances (pseudo "loss")
+        """
+        # 1. Convert x_data to numpy if needed
+        if not isinstance(x_data, np.ndarray):
+            x_data = x_data.cpu().numpy() if hasattr(x_data, 'cpu') else np.array(x_data)
+        n_samples, dim = x_data.shape
+
+        # 2. Build Union-Find for must-link constraints
+        must_link = self.constraints.get('must_link', [])
+        cannot_link = self.constraints.get('cannot_link', [])
+
+        parent = list(range(n_samples))
+
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        def union(a, b):
+            rootA = find(a)
+            rootB = find(b)
+            if rootA != rootB:
+                parent[rootB] = rootA
+
+        # Merge connected components for must-link pairs
+        for (i, j) in must_link:
+            union(i, j)
+
+        # Group samples by supernode
+        comp_map = defaultdict(list)
+        for i in range(n_samples):
+            root_i = find(i)
+            comp_map[root_i].append(i)
+
+        # Each key in comp_map is a unique supernode. Let's build arrays for them.
+        supernodes = list(comp_map.keys())  # each is a representative
+        supernode_count = len(supernodes)
+
+        # 2.1. For convenience, we'll create a list of (indices, centroid) for each supernode
+        supernode_indices = []
+        supernode_centroids = np.zeros((supernode_count, dim), dtype=x_data.dtype)
+        for s_idx, root in enumerate(supernodes):
+            members = comp_map[root]  # all samples in that supernode
+            supernode_indices.append(members)
+            # compute centroid
+            supernode_centroids[s_idx] = np.mean(x_data[members], axis=0)
+
+        # 3. Convert cannot_link constraints into supernode-level constraints
+        # We say: "two supernodes cannot be assigned to the same cluster"
+        # if any sample in supernode A cannot-link with any sample in supernode B.
+        cannot_link_supernodes = defaultdict(set)  # {sA: set of sB that can't be with sA}
+        for (i, j) in cannot_link:
+            sA = find(i)
+            sB = find(j)
+            # if they are in the same must-link component, this is unsatisfiable
+            if sA == sB:
+                # We have a contradiction: a must-link group also has a cannot-link edge
+                # There's no perfect solution, but let's just record it
+                if verbose:
+                    print(f"[PCKmeans] WARNING: Sample {i} and {j} are must-link but also cannot-link.")
+                # We continue anyway, but a perfect assignment is impossible
+            else:
+                cannot_link_supernodes[sA].add(sB)
+                cannot_link_supernodes[sB].add(sA)
+
+        # 4. Now run a k-means-like procedure on the supernodes
+        # We'll keep an assignment: supernode_assignments[s_idx] in [0..k-1]
+        rng = np.random.default_rng()
+        # Initialize cluster centers with random supernodes
+        init_indices = rng.choice(supernode_count, size=self.k, replace=False)
+        cluster_centers = supernode_centroids[init_indices, :]
+
+        # We'll track supernode -> cluster
+        supernode_assignments = np.zeros(supernode_count, dtype=int)
+
+        for iteration in range(self.max_iter):
+            # 4.1. Assignment step
+            new_assignments = np.copy(supernode_assignments)
+
+            # Shuffle supernodes to reduce ordering bias
+            order = np.arange(supernode_count)
+            rng.shuffle(order)
+
+            for s_idx in order:
+                # Find the nearest cluster that does NOT violate cannot-link constraints
+                dists = np.linalg.norm(supernode_centroids[s_idx] - cluster_centers, axis=1)
+                sorted_clusters = np.argsort(dists)
+
+                # Check cannot-link: if supernode s_idx is assigned to cluster c,
+                # then none of the supernodes that are in cannot_link_supernodes[s_idx]
+                # can also be in c. We check what they've been assigned to so far.
+                assigned_cluster = None
+                for c in sorted_clusters:
+                    # check if any cannot-link supernode is already assigned to c
+                    conflict_found = False
+                    for conflict_sn in cannot_link_supernodes[supernodes[s_idx]]:
+                        # We need to find that supernode's index in supernodes list:
+                        if conflict_sn not in comp_map:
+                            # 'conflict_sn' is a rep, so let's find its index:
+                            # but if it doesn't appear for some reason, skip
+                            continue
+                        # Actually, we need to invert the find for conflict_sn:
+                        rep_idx = supernodes.index(find(conflict_sn))
+                        # if that supernode is assigned to cluster c, it's a conflict
+                        if new_assignments[rep_idx] == c:
+                            conflict_found = True
+                            break
+                    if conflict_found:
+                        continue
+                    assigned_cluster = c
+                    break
+
+                # If all clusters conflict, we fallback to the nearest cluster ignoring constraints
+                if assigned_cluster is None:
+                    assigned_cluster = sorted_clusters[0]
+
+                new_assignments[s_idx] = assigned_cluster
+
+            # 4.2. Update step: recalc cluster centers
+            new_centers = np.zeros((self.k, dim), dtype=x_data.dtype)
+            counts = np.zeros(self.k, dtype=int)
+
+            for s_idx in range(supernode_count):
+                c = new_assignments[s_idx]
+                new_centers[c] += supernode_centroids[s_idx]
+                counts[c] += 1
+
+            # handle empty clusters
+            for c in range(self.k):
+                if counts[c] > 0:
+                    new_centers[c] /= counts[c]
+                else:
+                    # re-initialize randomly
+                    new_centers[c] = supernode_centroids[rng.choice(supernode_count, size=1), :]
+
+            # check convergence
+            if np.allclose(supernode_assignments, new_assignments):
+                break
+
+            supernode_assignments = new_assignments
+            cluster_centers = new_centers
+
+        # 5. Expand from supernode assignments to per-sample assignments
+        # supernode_assignments[s_idx] => each member of that supernode gets the same cluster
+        final_assignments = np.zeros(n_samples, dtype=int)
+        for s_idx, c in enumerate(supernode_assignments):
+            for member in supernode_indices[s_idx]:
+                final_assignments[member] = c
+
+        # 6. Build self.images_lists for compatibility with other parts of your code
+        images_lists = [[] for _ in range(self.k)]
+        for i, c in enumerate(final_assignments):
+            images_lists[c].append(i)
+        self.images_lists = images_lists
+
+        # 7. Compute final sum of squared distances (pseudo "loss")
+        total_loss = 0.0
+        for i in range(n_samples):
+            c = final_assignments[i]
+            dist = np.linalg.norm(x_data[i] - cluster_centers[c])
+            total_loss += dist**2
+
+        # 8. Optional: check constraints & print warnings
+        for (i, j) in must_link:
+            if final_assignments[i] != final_assignments[j]:
+                print(f"[PCKmeans] WARNING: Must-link violated between {i} and {j}.")
+
+        for (i, j) in cannot_link:
+            if final_assignments[i] == final_assignments[j]:
+                print(f"[PCKmeans] WARNING: Cannot-link violated between {i} and {j}.")
+
+        # 9. Optional visualization
+        if self.plot and true_labels is not None and epoch is not None:
+            self._plot_clusters(fig, axes, x_data, final_assignments, true_labels, epoch)
+
+        if verbose:
+            print(f"[PCKmeans] Completed after {iteration+1} iterations, final_loss={total_loss:.3f}")
+            print(f"[PCKmeans] #supernodes = {supernode_count}")
+
+        return total_loss
+
+    def _plot_clusters(self, fig, axes, features, pckmeans_labels, true_labels, epoch):
+        """
+        Similar to your plot_clusters(...) function, but simplified.
+        Plots the clustering and ground-truth with TSNE, highlighting constrained samples.
+        """
+        # For TSNE, we often subsample for speed
+        fraction = 0.05
+        n_samples = features.shape[0]
+        n_subset = int(fraction * n_samples)
+        rng = np.random.default_rng()
+        idx = rng.choice(n_samples, size=n_subset, replace=False)
+        X_2d = TSNE(n_components=2).fit_transform(features[idx])
+
+        sub_labels = pckmeans_labels[idx]
+        sub_true = true_labels[idx] if true_labels is not None else None
+
+        # Clear old axes
+        for ax in axes:
+            ax.clear()
+
+        # Plot cluster assignments
+        unique_clusters = np.unique(sub_labels)
+        for cluster_id in unique_clusters:
+            points = X_2d[sub_labels == cluster_id]
+            axes[0].scatter(points[:, 0], points[:, 1], label=f"C {cluster_id}", alpha=0.6)
+        axes[0].set_title(f"PCKmeans Clusters (Epoch {epoch})")
+        axes[0].legend()
+
+        # Plot true labels
+        if sub_true is not None:
+            unique_gt = np.unique(sub_true)
+            for label_id in unique_gt:
+                points = X_2d[sub_true == label_id]
+                axes[1].scatter(points[:, 0], points[:, 1], label=f"Label {label_id}", alpha=0.6)
+            axes[1].set_title(f"True Labels (Epoch {epoch})")
+            axes[1].legend()
+
+        fig.tight_layout()
+        plt.pause(0.5)
+

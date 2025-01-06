@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
 from torchvision.datasets import MNIST
 import clustering
-from util import AverageMeter, Logger, UnifLabelSampler
+from util import AverageMeter, Logger, UnifLabelSampler, create_sparse_labels, build_constraints_from_partial_data
 import models
 import os
 import random
@@ -20,7 +20,7 @@ args = {
     'data': './data',  # Path to dataset
     'arch': 'simplecnn',  # Model architecture
     'sobel': False,
-    'clustering': 'Kmeans',
+    'clustering': 'PCKmeans',
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
     'lr': 5e-1,
     'wd': -5,
@@ -34,7 +34,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
 }
 
@@ -68,6 +68,28 @@ def main(args):
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
     dataset = Subset(dataset, np.arange(0, len(dataset), 1))
     # dataset = Subset(dataset, random.sample(range(len(dataset)), int(fraction * len(dataset))))
+
+
+    # Create partially labeled dataset
+    if args['verbose']:
+        print('Creating partially labeled dataset and constraints')
+    partial_labeled_data = create_sparse_labels(
+        dataset,
+        fraction=0.05,  # only 5% labeled
+        pattern="random",
+        noise=0.1,      # 10% of those 5% are wrong
+        seed=2024
+    )
+
+    constraints = build_constraints_from_partial_data(
+        partial_labeled_data,
+        must_link_mode="same_label",
+        cannot_link_mode="diff_label",
+        max_pairs=500,
+        seed=2024
+    )
+
+
 
     # print shape of a single sample
     print("sample shape: " + str(dataset[0][0].shape))
@@ -110,7 +132,10 @@ def main(args):
     criterion = nn.CrossEntropyLoss().to(device)
 
     # Clustering
-    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], device, plot=args['plot_clusters'])
+    deepcluster = clustering.__dict__[args['clustering']](args['nmb_cluster'], 
+                                                          device, 
+                                                          plot=args['plot_clusters'], 
+                                                          constraints=constraints)
 
     # Logging setup
     cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
