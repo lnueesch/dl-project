@@ -11,6 +11,9 @@ import time
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, silhouette_score, fowlkes_mallows_score, davies_bouldin_score
+from sklearn.metrics import homogeneity_score, completeness_score, v_measure_score
+from sklearn.metrics import confusion_matrix
 from active_semi_clustering.semi_supervised.pairwise_constraints import PCKMeans
 import numpy as np
 from PIL import Image
@@ -325,7 +328,7 @@ def run_pckmeans(x, nmb_clusters, pairwise_constraints, verbose=False):
     
     # Step 2: Perform PCKMeans clustering
     print('Perform PCKMeans from sklearn')
-    pckmeans = PCKMeans(n_clusters=nmb_clusters)
+    pckmeans = PCKMeans(n_clusters=nmb_clusters, max_iter=30, w=1)
     pckmeans.fit(xb, ml=pairwise_constraints[0], cl=pairwise_constraints[1])
     
     # Retrieve cluster assignments and inertia (loss)
@@ -436,6 +439,21 @@ class PCKmeans(object):
         if verbose:
             elapsed = time.time() - end
             print(f'pck-means time: {elapsed:.0f} s')
+        
+        # Print comparison metrics
+        if verbose:
+            print("Adjusted Rand Index (ARI): ", adjusted_rand_score(true_labels, I))
+            print(f"Normalized Mutual Information (NMI): ", normalized_mutual_info_score(true_labels, I))
+            print(f"Homogeneity: ", homogeneity_score(true_labels, I))
+            print(f"Completeness: ", completeness_score(true_labels, I))
+            print(f"V-Measure: ", v_measure_score(true_labels, I))
+            print(f"Fowlkes-Mallows Index: ", fowlkes_mallows_score(true_labels, I))
+            print(f"Silhouette Score: ", silhouette_score(x_data, I))
+            print(f"Davies-Bouldin Index: ", davies_bouldin_score(x_data, I))
+
+            contingency = confusion_matrix(true_labels, I)
+            print("Contingency Matrix:")
+            print(contingency)
 
         # Plot clusters if enabled
         if self.plot and true_labels is not None and epoch is not None:
