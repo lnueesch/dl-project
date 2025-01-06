@@ -131,6 +131,7 @@ def main(args):
         fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
     # Start Training
+    print("Start training")
     for epoch in range(args['epochs']):
         # Remove head
         model.top_layer = None

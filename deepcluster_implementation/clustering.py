@@ -328,7 +328,7 @@ def run_pckmeans(x, nmb_clusters, pairwise_constraints, verbose=False):
     
     # Step 2: Perform PCKMeans clustering
     print('Perform PCKMeans from sklearn')
-    pckmeans = PCKMeans(n_clusters=nmb_clusters, max_iter=30, w=1)
+    pckmeans = PCKMeans(n_clusters=nmb_clusters, max_iter=20, w=1)
     pckmeans.fit(xb, ml=pairwise_constraints[0], cl=pairwise_constraints[1])
     
     # Retrieve cluster assignments and inertia (loss)
@@ -396,6 +396,32 @@ class Kmeans(object):
             elapsed = time.time() - end
             print(f'k-means time: {elapsed:.0f} s')
 
+        ###
+        # reorder cluster assignment label
+        I = np.array(I)
+        I_cpy = I.copy()
+        for i in range(self.k):
+            unique_values, counts = np.unique(I_cpy[true_labels==i], return_counts=True)
+            most_frequent_value = unique_values[np.argmax(counts)]
+            I[I_cpy==most_frequent_value] = i
+
+        # Print comparison metrics
+        if verbose:
+            print(true_labels[:10], I[:10])
+            print("Adjusted Rand Index (ARI): ", adjusted_rand_score(true_labels, I))
+            print(f"Normalized Mutual Information (NMI): ", normalized_mutual_info_score(true_labels, I))
+            print(f"Homogeneity: ", homogeneity_score(true_labels, I))
+            print(f"Completeness: ", completeness_score(true_labels, I))
+            print(f"V-Measure: ", v_measure_score(true_labels, I))
+            print(f"Fowlkes-Mallows Index: ", fowlkes_mallows_score(true_labels, I))
+            print(f"Silhouette Score: ", silhouette_score(x_data, I))
+            print(f"Davies-Bouldin Index: ", davies_bouldin_score(x_data, I))
+
+            contingency = confusion_matrix(true_labels, I)
+            print("Contingency Matrix:")
+            print(contingency)
+        ###
+
         # Plot clusters if enabled
         if self.plot and true_labels is not None and epoch is not None:
             kmeans_labels = np.array(I)  # Cluster assignments
@@ -440,8 +466,18 @@ class PCKmeans(object):
             elapsed = time.time() - end
             print(f'pck-means time: {elapsed:.0f} s')
         
+        ###
+        # reorder cluster assignment label
+        I = np.array(I)
+        I_cpy = I.copy()
+        for i in range(self.k):
+            unique_values, counts = np.unique(I_cpy[true_labels==i], return_counts=True)
+            most_frequent_value = unique_values[np.argmax(counts)]
+            I[I_cpy==most_frequent_value] = i
+
         # Print comparison metrics
         if verbose:
+            print(true_labels[:10], I[:10])
             print("Adjusted Rand Index (ARI): ", adjusted_rand_score(true_labels, I))
             print(f"Normalized Mutual Information (NMI): ", normalized_mutual_info_score(true_labels, I))
             print(f"Homogeneity: ", homogeneity_score(true_labels, I))
@@ -454,6 +490,7 @@ class PCKmeans(object):
             contingency = confusion_matrix(true_labels, I)
             print("Contingency Matrix:")
             print(contingency)
+        ###
 
         # Plot clusters if enabled
         if self.plot and true_labels is not None and epoch is not None:
