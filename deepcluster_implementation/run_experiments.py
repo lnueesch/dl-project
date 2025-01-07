@@ -20,13 +20,14 @@ default_args = {
     'verbose': True,
     'device': 'mps',
     'plot_clusters': True,
-    'label_fraction': 0.001,
+    'label_fraction': 0.0,
     'label_pattern': 'random',
     'label_noise': 0.0,
     'cannot_link_fraction': 0.1
 }
 
 experiments = [
+    {**default_args},
     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
     # {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
     # {**default_args, 'label_fraction': 0.1, 'label_noise': 0.0},

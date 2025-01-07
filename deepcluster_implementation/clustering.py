@@ -19,6 +19,7 @@ import cv2
 
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -28,7 +29,7 @@ np.random.seed(seed)
 
 __all__ = ['Kmeans', 'PCKmeans', 'cluster_assign', 'arrange_clustering']
 
-def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None):
+def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, epoch, save_path=None, mode='TSNE'):
     """
     Update the same figure for cluster visualization during training.
     Args:
@@ -41,11 +42,18 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         epoch (int): Current epoch for annotation.
     """
     # Reduce to 2D with t-SNE for visualization
-    tsne = TSNE(n_components=2, random_state=42, perplexity=30)
-    fraction = 0.05  # Use 10% of the features
-    num_samples = int(features.shape[0] * fraction)
-    indices = np.random.choice(features.shape[0], num_samples, replace=False)
-    reduced_features = tsne.fit_transform(features[indices])
+    if mode == 'TSNE':
+        tsne = TSNE(n_components=2, random_state=42, perplexity=30)
+        fraction = 0.05  # Use 10% of the features
+        num_samples = int(features.shape[0] * fraction)
+        indices = np.random.choice(features.shape[0], num_samples, replace=False)
+        reduced_features = tsne.fit_transform(features[indices])
+    elif mode == 'PCA':
+        pca = PCA(n_components=2)
+        reduced_features = pca.fit_transform(features)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
     kmeans_labels = kmeans_labels[indices]
     true_labels = true_labels[indices]
 
@@ -59,7 +67,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         axes[0].scatter(reduced_features[cluster_indices, 0],
                         reduced_features[cluster_indices, 1],
                         label=f"Cluster {cluster}", alpha=0.6)
-    axes[0].set_title(f"K-means Clusters (Epoch {epoch})")
+    axes[0].set_title(f"(PC)K-means Clusters (Epoch {epoch})")
     axes[0].legend()
 
     # Plot True labels
@@ -391,7 +399,7 @@ class PCKmeans(object):
 
         if self.plot:
             kmeans_labels = np.array(labels)
-            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch)
+            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch, mode='PCA')
 
         loss = 0
 

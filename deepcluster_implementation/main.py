@@ -238,28 +238,6 @@ def save_checkpoint(epoch, model, optimizer, args):
     if args['verbose']:
         print(f"Checkpoint saved at {checkpoint_path}")
 
-# def compute_features(dataloader, model, N, device):
-#     """Return raw images from the dataset."""
-#     if args['verbose']:
-#         print('Returning raw images as features for testing')
-
-#     # Initialize features as an array to store raw images
-#     features = None
-
-#     for i, (input_tensor, _) in enumerate(dataloader):
-#         # Flatten the input images (e.g., from [B, 1, 28, 28] to [B, 784])
-#         input_flat = input_tensor.view(input_tensor.size(0), -1).cpu().numpy()
-
-#         if features is None:
-#             features = np.zeros((N, input_flat.shape[1]), dtype='float32')
-
-#         if i < len(dataloader) - 1:
-#             features[i * args['batch']: (i + 1) * args['batch']] = input_flat
-#         else:
-#             features[i * args['batch']:] = input_flat
-
-#     return features
-
 def compute_features(dataloader, model, N, device, args):
     """Extract features from the dataset."""
     if args['verbose']:
