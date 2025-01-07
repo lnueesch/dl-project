@@ -13,7 +13,7 @@ default_args = {
     'wd': -5,
     'reassign': 3.0,
     'workers': 4,
-    'epochs': 5,
+    'epochs': 15,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',
@@ -29,18 +29,28 @@ default_args = {
     'cannot_link_fraction': 0.1
 }
 
+# experiments = [
+#     {**default_args},
+#     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
+#     {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
+#     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.1},
+#     {**default_args, 'label_fraction': 0.01, 'label_noise': 0.1},
+# ]
+
 experiments = [
     {**default_args},
     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
+    {**default_args, 'label_fraction': 0.002, 'label_noise': 0.0},
+    {**default_args, 'label_fraction': 0.005, 'label_noise': 0.0},
     {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.001, 'label_noise': 0.1},
-    {**default_args, 'label_fraction': 0.01, 'label_noise': 0.1},
+    {**default_args, 'label_fraction': 0.02, 'label_noise': 0.0},
 ]
 
 if __name__ == "__main__":
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = "label_fraction_variation"
     # Create a run folder under ./experiments
-    run_dir = os.path.join("./experiments", f"run_{timestamp}")
+    run_dir = os.path.join("./experiments", f"run_{run_name}")
     os.makedirs(run_dir, exist_ok=True)
 
     for i, exp_cfg in enumerate(experiments, start=1):

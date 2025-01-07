@@ -352,7 +352,7 @@ class PCKmeans(object):
       - stores images_lists for subsequent usage
       - plots clustering results if `plot` flag is set
     """
-    def __init__(self, k, max_iter=5, w=1, device='cpu', plot=True, constraints=None, labeled_indices=None):
+    def __init__(self, k, max_iter=10, w=1, device='cpu', plot=True, constraints=None, labeled_indices=None):
         self.n_clusters = k
         self.max_iter = max_iter
         self.w = w
