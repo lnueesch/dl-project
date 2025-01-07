@@ -14,6 +14,7 @@ import models
 import os
 import random
 import matplotlib.pyplot as plt
+import json
 
 # Define parameters directly
 args = {
@@ -145,8 +146,17 @@ def main(args):
                                                           constraints=constraints,
                                                           labeled_indices=labeled_indices)
 
+    # Create a unique folder for each run
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    run_folder = os.path.join(args['exp'], f"run_{timestamp}")
+    os.makedirs(os.path.join(run_folder, 'visualizations'), exist_ok=True)
+
+    # Save parameters
+    with open(os.path.join(run_folder, 'params.json'), 'w') as f:
+        json.dump(args, f, indent=4)
+
     # Logging setup
-    cluster_log = Logger(os.path.join(args['exp'], 'clusters'))
+    cluster_log = Logger(os.path.join(run_folder, 'clusters'))
 
     # if plot_clusters, create figure
     if args['plot_clusters']:
@@ -168,7 +178,7 @@ def main(args):
         # Cluster features and visualize
         if args['verbose']:
             print('Clustering features')
-        save_path = os.path.join(args['exp'], 'visualizations', f"epoch_{epoch}.png")
+        save_path = os.path.join(run_folder, 'visualizations', f"epoch_{epoch}.png")
         clustering_loss = deepcluster.cluster(fig, axes, features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'])
 
         # Assign pseudo-labels
@@ -227,10 +237,20 @@ def main(args):
                     'arch': args['arch'],
                     'state_dict': model.state_dict(),
                     'optimizer' : optimizer.state_dict()},
-                   os.path.join(args['exp'], 'checkpoint.pth.tar'))
+                   os.path.join(run_folder, f'checkpoint_epoch_{epoch}.pth.tar'))
 
         # save cluster assignments
         cluster_log.log(deepcluster.images_lists)
+
+    # save final model
+    final_checkpoint_path = os.path.join(run_folder, 'final_model.pth.tar')
+    torch.save({
+        'epoch': args['epochs'],
+        'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+    }, final_checkpoint_path)
+
+    print(f"Results saved at: {run_folder}")
 
 
 def save_checkpoint(epoch, model, optimizer, args):
