@@ -6,7 +6,7 @@ __all__ = ['MNISTcnn', 'mnistcnn']
 
 class MNISTcnn(nn.Module):
     def _init_(self, sobel):
-        super(MNISTcnn, self)._init_()
+        super(MNISTcnn, self).__init__()
         self.sobel = sobel
 
         # Feature extractor (convolutional layers)
@@ -67,5 +67,5 @@ class MNISTcnn(nn.Module):
 
 # Function to return the MNIST model
 def mnistcnn(sobel=False, bn=False, out=10):
-    model = MNISTcnn(sobel)
+    model = MNISTcnn(sobel=sobel)
     return model
