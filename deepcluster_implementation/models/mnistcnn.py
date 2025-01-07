@@ -5,7 +5,7 @@ import torch.nn.functional as F
 __all__ = ['MNISTcnn', 'mnistcnn']
 
 class MNISTcnn(nn.Module):
-    def _init_(self, sobel):
+    def __init__(self, sobel):
         super(MNISTcnn, self).__init__()
         self.sobel = sobel
 
@@ -37,6 +37,7 @@ class MNISTcnn(nn.Module):
         self.top_layer = nn.Linear(64, 10)
 
     def forward(self, x):
+        x = x.to(next(self.parameters()).device)
         # Apply Sobel filter if enabled
         if self.sobel:
             x = self.apply_sobel(x)
@@ -67,5 +68,5 @@ class MNISTcnn(nn.Module):
 
 # Function to return the MNIST model
 def mnistcnn(sobel=False, bn=False, out=10):
-    model = MNISTcnn(sobel=sobel)
+    model = MNISTcnn(sobel)
     return model
