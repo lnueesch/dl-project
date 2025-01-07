@@ -61,6 +61,10 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
     for ax in axes:
         ax.clear()
 
+    # Use LaTeX font
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+
     # Plot K-means clustering
     for cluster in range(n_clusters):
         cluster_indices = (kmeans_labels == cluster)

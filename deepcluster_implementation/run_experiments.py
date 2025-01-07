@@ -1,4 +1,6 @@
 from main import run_experiment
+import os
+from datetime import datetime
 
 default_args = {
     'data': './data',
@@ -37,6 +39,10 @@ experiments = [
 ]
 
 if __name__ == "__main__":
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    experiment_dir = os.path.join(default_args['exp'], timestamp)
+    os.makedirs(experiment_dir, exist_ok=True)
+    default_args['exp'] = experiment_dir
     for exp_cfg in experiments:
         print(f"Running experiment with config: {exp_cfg}")
         run_experiment(exp_cfg)
