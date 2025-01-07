@@ -5,7 +5,7 @@ from datetime import datetime
 default_args = {
     'data': './data',
     # 'arch': 'simplecnn',
-    'arch': 'mnistmodel',
+    'arch': 'mnistcnn',
     'sobel': False,
     'clustering': 'PCKmeans',
     'nmb_cluster': 10,
