@@ -40,9 +40,13 @@ experiments = [
 
 if __name__ == "__main__":
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    experiment_dir = os.path.join(default_args['exp'], timestamp)
-    os.makedirs(experiment_dir, exist_ok=True)
-    default_args['exp'] = experiment_dir
-    for exp_cfg in experiments:
-        print(f"Running experiment with config: {exp_cfg}")
+    # Create a run folder under ./experiments
+    run_dir = os.path.join("./experiments", f"run_{timestamp}")
+    os.makedirs(run_dir, exist_ok=True)
+
+    for i, exp_cfg in enumerate(experiments, start=1):
+        config_dir = os.path.join(run_dir, f"config_{i}")
+        os.makedirs(config_dir, exist_ok=True)
+        exp_cfg['exp'] = config_dir  # pass the config folder to run_experiment
+        print(f"Running experiment in {config_dir} with config: {exp_cfg}")
         run_experiment(exp_cfg)

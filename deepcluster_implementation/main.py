@@ -121,8 +121,7 @@ def run_experiment(args):
                                                           labeled_indices=labeled_indices)
 
     # Create a unique folder for each run
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    run_folder = os.path.join(args['exp'], f"run_{timestamp}")
+    run_folder = args['exp']  # Use the folder passed from run_experiments directly
     os.makedirs(os.path.join(run_folder, 'visualizations'), exist_ok=True)
 
     # Save parameters
