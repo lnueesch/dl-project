@@ -63,7 +63,7 @@ def run_experiment(args):
     if args['verbose']:
         print('Creating constraints')
     constraints = create_constraints(
-        dataset,
+        partial_labeled_data,
         labeled_indices,
         cl_fraction=args['cannot_link_fraction'],
         ml_fraction=1,
