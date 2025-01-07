@@ -12,7 +12,7 @@ default_args = {
     'wd': -5,
     'reassign': 3.0,
     'workers': 4,
-    'epochs': 1,
+    'epochs': 5,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',
