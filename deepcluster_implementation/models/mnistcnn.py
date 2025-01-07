@@ -66,5 +66,6 @@ class MNISTmodel(nn.Module):
         return torch.sqrt(sobel_x ** 2 + sobel_y ** 2)
 
 # Function to return the MNIST model
-def mnistmodel(sobel=False):
-    return MNISTmodel(sobel=sobel)
+def mnistmodel(sobel=False, bn=False, out=10):
+    model = MNISTmodel(sobel=sobel)
+    return model
