@@ -25,9 +25,9 @@ args = {
     'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
     'lr': 5e-2,
     'wd': -5,
-    'reassign': 1.0,
+    'reassign': 3.0,
     'workers': 4,
-    'epochs': 50,
+    'epochs': 10,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',  # Path to checkpoint
@@ -35,7 +35,7 @@ args = {
     'seed': 31,
     'exp': './experiment',
     'verbose': True,
-    'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
+    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
     'plot_clusters' : True,
     'label_fraction': 0.001,  # Fraction of the dataset to use for testing
     'cannot_link_fraction': 0.1  # This is the fraction you want to use (1.0 = all constraints)
