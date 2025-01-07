@@ -70,11 +70,12 @@ def run_experiment(args):
         seed=2024
     )
 
-    print("Number of ml constraints:", len(constraints[0]))
-    print("Number of cl constraints:", len(constraints[1]))
+    if args['verbose']:
+        print("Number of ml constraints:", len(constraints[0]))
+        print("Number of cl constraints:", len(constraints[1]))
 
-    # print shape of a single sample
-    print("sample shape: " + str(dataset[0][0].shape))
+        # print shape of a single sample
+        print("sample shape: " + str(dataset[0][0].shape))
 
     # DataLoader
     train_loader = DataLoader(

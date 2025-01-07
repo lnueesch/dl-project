@@ -117,14 +117,14 @@ def create_constraints(dataset, labeled_indices, cl_fraction=1.0, ml_fraction=1.
     if seed is not None:
         random.seed(seed)
 
-    # 1) Group labeled indices by their label.
+    # 1. Group labeled indices by their label.
     label_dict = defaultdict(list)
     for idx in labeled_indices:
         # label is the second element in dataset[idx]
         lbl = dataset[idx][1]
         label_dict[lbl].append(idx)
 
-    # 2) Construct all must-link constraints.
+    # 2. Construct all must-link constraints.
     #    For each label, create pairwise combinations among indices having that label.
     must_links = []
     for lbl, idxs in label_dict.items():
@@ -132,7 +132,7 @@ def create_constraints(dataset, labeled_indices, cl_fraction=1.0, ml_fraction=1.
         if len(idxs) > 1:
             must_links.extend(combinations(idxs, 2))
 
-    # 3) Construct cannot-link constraints across labels.
+    # 3. Construct cannot-link constraints across labels.
     #    We'll sample them so that we only take 'cl_fraction' of all possible cross-label pairs.
     cannot_links = []
     all_labels = sorted(label_dict.keys())

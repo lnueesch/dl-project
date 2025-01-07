@@ -32,10 +32,8 @@ experiments = [
     {**default_args},
     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
     {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.1, 'label_noise': 0.0},
     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.1},
     {**default_args, 'label_fraction': 0.01, 'label_noise': 0.1},
-    {**default_args, 'label_fraction': 0.1, 'label_noise': 0.1}
 ]
 
 if __name__ == "__main__":
@@ -48,5 +46,5 @@ if __name__ == "__main__":
         config_dir = os.path.join(run_dir, f"config_{i}")
         os.makedirs(config_dir, exist_ok=True)
         exp_cfg['exp'] = config_dir  # pass the config folder to run_experiment
-        print(f"Running experiment in {config_dir} with config: {exp_cfg}")
+        print(f"Running experiment in {config_dir} with config: {exp_cfg['label_fraction']}, {exp_cfg['label_noise']}")
         run_experiment(exp_cfg)
