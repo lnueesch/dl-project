@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ['MNISTmodel', 'mnistmodel']
+__all__ = ['MNISTcnn', 'mnistcnn']
 
-class MNISTmodel(nn.Module):
-    def _init_(self, sobel=False):
-        super(MNISTmodel, self)._init_()
+class MNISTcnn(nn.Module):
+    def _init_(self, sobel):
+        super(MNISTcnn, self)._init_()
         self.sobel = sobel
 
         # Feature extractor (convolutional layers)
@@ -66,6 +66,6 @@ class MNISTmodel(nn.Module):
         return torch.sqrt(sobel_x ** 2 + sobel_y ** 2)
 
 # Function to return the MNIST model
-def mnistmodel(sobel=False, bn=False, out=10):
-    model = MNISTmodel(sobel=sobel)
+def mnistcnn(sobel=False, bn=False, out=10):
+    model = MNISTcnn(sobel)
     return model
