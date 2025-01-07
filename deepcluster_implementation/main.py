@@ -238,6 +238,13 @@ def run_experiment(args):
         silhouette = silhouette_score(features, labels_cur) if len(np.unique(labels_cur)) > 1 else None
         dbi = davies_bouldin_score(features, labels_cur) if len(np.unique(labels_cur)) > 1 else None
 
+        # Cast any np.float32 to Python’s built-in float before appending to the metrics_log
+        nmi_true = float(nmi_true)
+        ari_true = float(ari_true)
+        nmi_prev = float(nmi_prev) if nmi_prev is not None else None
+        silhouette = float(silhouette) if silhouette is not None else None
+        dbi = float(dbi) if dbi is not None else None
+
         # store metrics
         metrics_log['nmi_true'].append(nmi_true)
         metrics_log['ari_true'].append(ari_true)

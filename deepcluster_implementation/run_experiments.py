@@ -12,7 +12,7 @@ default_args = {
     'wd': -5,
     'reassign': 3.0,
     'workers': 4,
-    'epochs': 10,
+    'epochs': 1,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',
@@ -31,11 +31,11 @@ default_args = {
 experiments = [
     {**default_args},
     {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
-    # {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
-    # {**default_args, 'label_fraction': 0.1, 'label_noise': 0.0},
-    # {**default_args, 'label_fraction': 0.001, 'label_noise': 0.1},
-    # {**default_args, 'label_fraction': 0.01, 'label_noise': 0.1},
-    # {**default_args, 'label_fraction': 0.1, 'label_noise': 0.1}
+    {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
+    {**default_args, 'label_fraction': 0.1, 'label_noise': 0.0},
+    {**default_args, 'label_fraction': 0.001, 'label_noise': 0.1},
+    {**default_args, 'label_fraction': 0.01, 'label_noise': 0.1},
+    {**default_args, 'label_fraction': 0.1, 'label_noise': 0.1}
 ]
 
 if __name__ == "__main__":
