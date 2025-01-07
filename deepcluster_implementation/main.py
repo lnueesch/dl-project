@@ -274,6 +274,9 @@ def run_experiment(args):
     with open(os.path.join(run_folder, 'metrics.json'), 'w') as f:
         json.dump(metrics_log, f, indent=4)
 
+    #close all open figures
+    plt.close('all')
+
     print(f"Results saved at: {run_folder}")
 
 
