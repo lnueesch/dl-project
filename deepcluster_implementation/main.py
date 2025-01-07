@@ -201,26 +201,7 @@ def run_experiment(args):
                   'Clustering loss: {2:.3f} \n'
                   'ConvNet loss: {3:.3f}'
                   .format(epoch, time.time() - start_epoch_time, clustering_loss, loss))
-            try:
-                nmi = normalized_mutual_info_score(
-                    clustering.arrange_clustering(deepcluster.images_lists),
-                    clustering.arrange_clustering(cluster_log.data[-1])
-                )
-                print('NMI against previous assignment: {0:.3f}'.format(nmi))
-            except IndexError:
-                pass
-            nmi_true = normalized_mutual_info_score(
-                clustering.arrange_clustering(deepcluster.images_lists),
-                true_labels
-            )
-            print('NMI against true labels: {0:.3f}'.format(nmi_true))
-            ari_true = adjusted_rand_score(
-                true_labels,
-                clustering.arrange_clustering(deepcluster.images_lists)
-            )
-            if args['verbose']:
-                print('ARI against true labels: {0:.3f}'.format(ari_true))
-            print('####################### \n')
+            
         
         # extract current labels
         labels_cur = clustering.arrange_clustering(deepcluster.images_lists)
@@ -243,6 +224,14 @@ def run_experiment(args):
         nmi_prev = float(nmi_prev) if nmi_prev is not None else None
         silhouette = float(silhouette) if silhouette is not None else None
         dbi = float(dbi) if dbi is not None else None
+
+        if args['verbose']:
+            print(f"nmi_true: {nmi_true:.3f}")
+            print(f"ari_true: {ari_true:.3f}")
+            print(f"nmi_prev: {nmi_prev:.3f}" if nmi_prev is not None else "nmi_prev: None")
+            print(f"silhouette: {silhouette:.3f}" if silhouette is not None else "silhouette: None")
+            print(f"dbi: {dbi:.3f}" if dbi is not None else "dbi: None")
+            print('####################### \n')
 
         # store metrics
         metrics_log['nmi_true'].append(nmi_true)
