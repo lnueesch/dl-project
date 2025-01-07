@@ -207,11 +207,13 @@ def run_experiment(args):
             print('NMI against true labels: {0:.3f}'.format(nmi_true))
             print('####################### \n')
         # save running checkpoint
+        checkpoint_dir = os.path.join(run_folder, 'checkpoints')
+        os.makedirs(checkpoint_dir, exist_ok=True)
         torch.save({'epoch': epoch + 1,
-                    'arch': args['arch'],
-                    'state_dict': model.state_dict(),
-                    'optimizer' : optimizer.state_dict()},
-                   os.path.join(run_folder, f'checkpoint_epoch_{epoch}.pth.tar'))
+                'arch': args['arch'],
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()},
+               os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch}.pth.tar'))
 
         # save cluster assignments
         cluster_log.log(deepcluster.images_lists)
