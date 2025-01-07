@@ -4,7 +4,8 @@ from datetime import datetime
 
 default_args = {
     'data': './data',
-    'arch': 'simplecnn',
+    # 'arch': 'simplecnn',
+    'arch': 'mnistcnn',
     'sobel': False,
     'clustering': 'PCKmeans',
     'nmb_cluster': 10,
@@ -17,7 +18,7 @@ default_args = {
     'momentum': 0.9,
     'resume': '',
     'checkpoints': 25000,
-    'seed': 31,
+    'seed': 42,
     'exp': './experiment',
     'verbose': True,
     'device': 'mps',
