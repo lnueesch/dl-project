@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-_all_ = ['mnistmodel']
+__all__ = ['MNISTmodel', 'mnistmodel']
 
 class MNISTmodel(nn.Module):
     def _init_(self, sobel=False):
