@@ -77,6 +77,10 @@ def create_sparse_labels(dataset, fraction=0.01, pattern="random", noise=0.0, se
     
     # Create new dataset with these labels
     new_dataset = [(dataset[i][0], new_labels[i]) for i in range(total_size)]
+
+    #print how many labeled samples by counting non -1 labels 
+    labeled_count = sum(1 for label in new_labels if label != -1)
+    print(f"Total labeled samples: {labeled_count} out of {total_size} ({labeled_count/total_size*100:.2f}%)")
     
     return new_dataset, labeled_indices
 
