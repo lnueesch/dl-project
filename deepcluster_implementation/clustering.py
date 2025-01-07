@@ -399,7 +399,7 @@ class PCKmeans(object):
 
         if self.plot:
             kmeans_labels = np.array(labels)
-            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch, mode='PCA')
+            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch, mode='TSNE')
 
         loss = 0
 
