@@ -134,7 +134,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.image_indexes)
 
 
-def preprocess_features(npdata, pca=64):
+def preprocess_features(npdata, pca=32):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
     print("in_dim: ", ndim)
