@@ -6,7 +6,7 @@ __all__ = ['SimpleCNN', 'simplecnn']
 
 # Configuration for layers: (number of filters, kernel size, stride, padding)
 CFG = {
-    'mnist': [(64, 3, 2, 1), 'M', (128, 3, 1, 1), 'M', (256, 3, 1, 1), 'M']  # Simplified for MNIST
+    'mnist': [(32, 3, 2, 1), 'M', (64, 2, 1, 1), 'M', (128, 2, 1, 1), 'M']  # Simplified for MNIST
     # 'mnist': [(32, 3, 2, 1), 'M', (64, 3, 2, 1), 'M']
     # 'mnist': [(32, 3, 2, 1), 'M', (64, 3, 1, 1), 'M']
 }
@@ -19,7 +19,7 @@ class SimpleCNN(nn.Module):
         self.classifier = nn.Sequential(
             nn.Dropout(0.5),
             # nn.Linear(576, 256),  # Adjusted for MNIST
-            nn.Linear(256, 256),  # Adjusted for MNIST
+            nn.Linear(512, 256),  # Adjusted for MNIST
             nn.ReLU(inplace=True),
             # nn.Dropout(0.5),
             # nn.Linear(512, 256),

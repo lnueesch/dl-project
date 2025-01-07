@@ -102,8 +102,8 @@ def main(args):
 
     # DataLoader
     train_loader = DataLoader(
-        # dataset,
-        partial_labeled_data,
+        dataset,
+        # partial_labeled_data,
         batch_size=args['batch'],
         num_workers=args['workers'],
         shuffle=False,
@@ -276,7 +276,13 @@ def compute_features(dataloader, model, N, device):
 
     features = None
 
+    # Timing the initial setup
+    setup_start = time.time()
     for i, (input_tensor, _) in enumerate(dataloader):
+        if i == 0:
+            setup_end = time.time()
+            print(f"Initial setup time: {setup_end - setup_start:.3f} seconds")
+
         # Move input tensor to the correct device
         input_var = input_tensor.to(device)
 
@@ -300,10 +306,8 @@ def compute_features(dataloader, model, N, device):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args['verbose'] and (i % 200) == 0:
+        if args['verbose'] and (i % 64) == 0:
             print(f"{i}/{len(dataloader)}\tTime: {batch_time.val:.3f} ({batch_time.avg:.3f})")
-
-    
 
     return features
 

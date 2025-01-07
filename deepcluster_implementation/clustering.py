@@ -76,7 +76,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
 
     # Redraw the figure
     fig.tight_layout()
-    plt.pause(0.1)
+    plt.pause(1)
 
 def pil_loader(path):
     """Loads an image (for demonstration)."""
@@ -123,7 +123,8 @@ class ReassignedDataset(data.Dataset):
 def preprocess_features(npdata, pca=64):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
-    print("ndim: ", ndim)
+    print("in_dim: ", ndim)
+    print("out_dim: ", pca)
     npdata = npdata.astype('float32')
 
     # Check for degenerate data
@@ -357,6 +358,8 @@ class PCKmeans(object):
         """
         end = time.time()
 
+        X = preprocess_features(X)
+
         ml, cl = self.constraints
 
         ml_graph, cl_graph, neighborhoods = preprocess_constraints(ml, cl, X.shape[0])
@@ -375,7 +378,7 @@ class PCKmeans(object):
 
             # Check for convergence
             difference = (prev_cluster_centers - cluster_centers)
-            converged = np.allclose(difference, np.zeros(cluster_centers.shape), atol=1e-2, rtol=0)
+            converged = np.allclose(difference, np.zeros(cluster_centers.shape), atol=2e-2, rtol=0.1)
 
             print(f"PCKmeans Iteration {iteration + 1}/{self.max_iter} with max diff {np.max(difference)}")
             if converged: break
@@ -390,7 +393,9 @@ class PCKmeans(object):
             kmeans_labels = np.array(labels)
             plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch)
 
-        return self
+        loss = 0
+
+        return loss
 
     def _initialize_cluster_centers(self, X, neighborhoods):
         neighborhood_centers = np.array([X[neighborhood].mean(axis=0) for neighborhood in neighborhoods])
