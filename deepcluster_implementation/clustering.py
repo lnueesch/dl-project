@@ -50,7 +50,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         reduced_features = tsne.fit_transform(features[indices])
     elif mode == 'PCA':
         pca = PCA(n_components=2)
-        reduced_features = pca.fit_transform(features)
+        reduced_features = pca.fit_transform(features[indices])
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
