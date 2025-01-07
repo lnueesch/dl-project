@@ -84,6 +84,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
 
     # Redraw the figure
     fig.tight_layout()
+    if save_path:
+        fig.savefig(save_path, bbox_inches='tight')
     plt.pause(1)
 
 def pil_loader(path):
@@ -355,7 +357,7 @@ class PCKmeans(object):
         self.constraints = constraints
         self.labeled_indices = labeled_indices
 
-    def cluster(self, fig, axes, X, true_labels=None, epoch=None, verbose=False):
+    def cluster(self, fig, axes, X, true_labels=None, epoch=None, verbose=False, save_path=None):
         """
         Performs k-means clustering on x_data.
         Args:
@@ -399,7 +401,7 @@ class PCKmeans(object):
 
         if self.plot:
             kmeans_labels = np.array(labels)
-            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch, mode='TSNE')
+            plot_clusters(fig, axes, X, kmeans_labels, true_labels, self.n_clusters, epoch, mode='TSNE', save_path=save_path)
 
         loss = 0
 

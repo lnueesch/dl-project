@@ -153,7 +153,7 @@ def run_experiment(args):
         if args['verbose']:
             print('Clustering features')
         save_path = os.path.join(run_folder, 'visualizations', f"epoch_{epoch}.png")
-        clustering_loss = deepcluster.cluster(fig, axes, features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'])
+        clustering_loss = deepcluster.cluster(fig, axes, features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'], save_path=save_path)
 
         # Assign pseudo-labels
         if args['verbose']:
