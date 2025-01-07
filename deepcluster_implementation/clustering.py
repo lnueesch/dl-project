@@ -41,12 +41,12 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         n_clusters (int): Number of clusters.
         epoch (int): Current epoch for annotation.
     """
+    fraction = 0.05 # Fraction of data to visualize
+    num_samples = int(features.shape[0] * fraction)
     indices = np.random.choice(features.shape[0], num_samples, replace=False)
     # Reduce to 2D with t-SNE for visualization
     if mode == 'TSNE':
         tsne = TSNE(n_components=2, random_state=42, perplexity=30)
-        fraction = 0.05  # Use 10% of the features
-        num_samples = int(features.shape[0] * fraction)
         reduced_features = tsne.fit_transform(features[indices])
     elif mode == 'PCA':
         pca = PCA(n_components=2)
