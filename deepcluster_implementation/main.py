@@ -217,8 +217,6 @@ def run_experiment(args):
                 true_labels,
                 clustering.arrange_clustering(deepcluster.images_lists)
             )
-            metrics_log['nmi_true'].append(nmi_true)
-            metrics_log['ari_true'].append(ari_true)
             if args['verbose']:
                 print('ARI against true labels: {0:.3f}'.format(ari_true))
             print('####################### \n')
