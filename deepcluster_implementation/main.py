@@ -16,33 +16,7 @@ import random
 import matplotlib.pyplot as plt
 import json
 
-# Define parameters directly
-args = {
-    'data': './data',  # Path to dataset
-    'arch': 'simplecnn',  # Model architecture
-    'sobel': False,
-    'clustering': 'PCKmeans',
-    # 'clustering': 'Kmeans',
-    'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
-    'lr': 5e-2,
-    'wd': -5,
-    'reassign': 3.0,
-    'workers': 4,
-    'epochs': 10,
-    'batch': 256,
-    'momentum': 0.9,
-    'resume': '',  # Path to checkpoint
-    'checkpoints': 25000,
-    'seed': 31,
-    'exp': './experiment',
-    'verbose': True,
-    'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
-    'plot_clusters' : True,
-    'label_fraction': 0.001,  # Fraction of the dataset to use for testing
-    'cannot_link_fraction': 0.1  # This is the fraction you want to use (1.0 = all constraints)
-}
-
-def main(args):
+def run_experiment(args):
     # Fix random seeds
     torch.manual_seed(args['seed'])
     torch.cuda.manual_seed_all(args['seed'])
@@ -80,8 +54,8 @@ def main(args):
     partial_labeled_data, labeled_indices = create_sparse_labels(
         dataset,
         fraction=args['label_fraction'], 
-        pattern="random",
-        noise=0.0,
+        pattern=args['label_pattern'],
+        noise=args['label_noise'],
         seed=2024
     )
 
@@ -170,7 +144,7 @@ def main(args):
         model.classifier = nn.Sequential(*list(model.classifier.children())[:-1])
 
         # Compute features
-        features = compute_features(train_loader, model, len(dataset), device)
+        features = compute_features(train_loader, model, len(dataset), device, args)
 
         # Extract true labels
         true_labels = np.array([label for _, label in dataset])
@@ -209,7 +183,7 @@ def main(args):
 
         # Train network with pseudo-labels
         end = time.time()
-        loss = train(train_dataloader, model, criterion, optimizer, epoch, device)
+        loss = train(train_dataloader, model, criterion, optimizer, epoch, device, args)
 
         # print log
         if args['verbose']:
@@ -286,7 +260,7 @@ def save_checkpoint(epoch, model, optimizer, args):
 
 #     return features
 
-def compute_features(dataloader, model, N, device):
+def compute_features(dataloader, model, N, device, args):
     """Extract features from the dataset."""
     if args['verbose']:
         print('Compute features')
@@ -334,7 +308,7 @@ def compute_features(dataloader, model, N, device):
 
 
 
-def train(loader, model, criterion, optimizer, epoch, device):
+def train(loader, model, criterion, optimizer, epoch, device, args):
     """Train the CNN with multiple passes over the training set."""
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -399,4 +373,30 @@ def train(loader, model, criterion, optimizer, epoch, device):
 
 
 if __name__ == "__main__":
-    main(args)
+    default_args = {
+        'data': './data',  # Path to dataset
+        'arch': 'simplecnn',  # Model architecture
+        'sobel': False,
+        'clustering': 'PCKmeans',
+        # 'clustering': 'Kmeans',
+        'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
+        'lr': 5e-2,
+        'wd': -5,
+        'reassign': 3.0,
+        'workers': 4,
+        'epochs': 10,
+        'batch': 256,
+        'momentum': 0.9,
+        'resume': '',  # Path to checkpoint
+        'checkpoints': 25000,
+        'seed': 31,
+        'exp': './experiment',
+        'verbose': True,
+        'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+        'plot_clusters' : True,
+        'label_fraction': 0.001,  # Fraction of the dataset to use for testing
+        'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
+        'label_pattern': 'random',
+        'label_noise': 0.0,
+    }
+    run_experiment(default_args)
