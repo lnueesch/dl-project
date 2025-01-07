@@ -1,6 +1,7 @@
 import time
 import numpy as np
-from sklearn.metrics.cluster import normalized_mutual_info_score
+from sklearn.metrics.cluster import normalized_mutual_info_score, adjusted_rand_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -135,6 +136,14 @@ def run_experiment(args):
     if args['plot_clusters']:
         fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
+    metrics_log = {
+        'nmi_true': [],
+        'ari_true': [],
+        'nmi_prev': [],
+        'silhouette': [],
+        'dbi': []
+    }
+
     # Start Training
     for epoch in range(args['epochs']):
         start_epoch_time = time.time()
@@ -204,7 +213,38 @@ def run_experiment(args):
                 true_labels
             )
             print('NMI against true labels: {0:.3f}'.format(nmi_true))
+            ari_true = adjusted_rand_score(
+                true_labels,
+                clustering.arrange_clustering(deepcluster.images_lists)
+            )
+            metrics_log['nmi_true'].append(nmi_true)
+            metrics_log['ari_true'].append(ari_true)
+            if args['verbose']:
+                print('ARI against true labels: {0:.3f}'.format(ari_true))
             print('####################### \n')
+        
+        # extract current labels
+        labels_cur = clustering.arrange_clustering(deepcluster.images_lists)
+
+        try:
+            labels_prev = clustering.arrange_clustering(cluster_log.data[-1])
+            nmi_prev = normalized_mutual_info_score(labels_cur, labels_prev)
+        except IndexError:
+            nmi_prev = None
+
+        # compute metrics vs ground truth
+        nmi_true = normalized_mutual_info_score(labels_cur, true_labels)
+        ari_true = adjusted_rand_score(true_labels, labels_cur)
+        silhouette = silhouette_score(features, labels_cur) if len(np.unique(labels_cur)) > 1 else None
+        dbi = davies_bouldin_score(features, labels_cur) if len(np.unique(labels_cur)) > 1 else None
+
+        # store metrics
+        metrics_log['nmi_true'].append(nmi_true)
+        metrics_log['ari_true'].append(ari_true)
+        metrics_log['nmi_prev'].append(nmi_prev)
+        metrics_log['silhouette'].append(silhouette)
+        metrics_log['dbi'].append(dbi)
+
         # save running checkpoint
         checkpoint_dir = os.path.join(run_folder, 'checkpoints')
         os.makedirs(checkpoint_dir, exist_ok=True)
@@ -224,6 +264,10 @@ def run_experiment(args):
         'state_dict': model.state_dict(),
         'optimizer': optimizer.state_dict(),
     }, final_checkpoint_path)
+
+    # save metrics
+    with open(os.path.join(run_folder, 'metrics.json'), 'w') as f:
+        json.dump(metrics_log, f, indent=4)
 
     print(f"Results saved at: {run_folder}")
 
