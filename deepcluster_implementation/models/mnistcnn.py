@@ -11,18 +11,18 @@ class MNISTcnn(nn.Module):
 
         # Feature extractor (convolutional layers)
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=16, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, padding=1),
+            nn.BatchNorm2d(8),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.2),
+            
+            nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=1),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
             nn.Dropout(0.2),
             
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
-            
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.Dropout(0.2)
         )
@@ -34,7 +34,7 @@ class MNISTcnn(nn.Module):
         self.classifier = nn.Sequential()
 
         # Top layer (linear layer for classification)
-        self.top_layer = nn.Linear(64, 10)
+        self.top_layer = nn.Linear(32, 10)
 
     def forward(self, x):
         x = x.to(next(self.parameters()).device)
