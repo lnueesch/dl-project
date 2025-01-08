@@ -13,7 +13,7 @@ default_args = {
     'wd': -5,
     'reassign': 3.0,
     'workers': 4,
-    'epochs': 15,
+    'epochs': 10,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',
@@ -26,7 +26,8 @@ default_args = {
     'label_fraction': 0.0,
     'label_pattern': 'random',
     'label_noise': 0.0,
-    'cannot_link_fraction': 0.1
+    'cannot_link_fraction': 0.1,
+    'kmeans_iters': 10
 }
 
 # experiments = [
@@ -38,17 +39,15 @@ default_args = {
 # ]
 
 experiments = [
-    {**default_args},
-    {**default_args, 'label_fraction': 0.001, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.002, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.005, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.01, 'label_noise': 0.0},
-    {**default_args, 'label_fraction': 0.02, 'label_noise': 0.0},
+    # {**default_args},
+    {**default_args, 'label_fraction': 0.005, 'label_noise': 0.0, 'kmeans_iters': 5},
+    {**default_args, 'label_fraction': 0.005, 'label_noise': 0.0, 'kmeans_iters': 10},
+    {**default_args, 'label_fraction': 0.005, 'label_noise': 0.0, 'kmeans_iters': 20},
 ]
 
 if __name__ == "__main__":
-    run_name = datetime.now().strftime('%Y%m%d_%H%M%S')
-    run_name = "label_fraction_variation"
+    time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = "kmeans_iteration_variation_" + str(time)
     # Create a run folder under ./experiments
     run_dir = os.path.join("./experiments", f"run_{run_name}")
     os.makedirs(run_dir, exist_ok=True)

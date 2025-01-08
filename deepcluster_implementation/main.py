@@ -117,6 +117,7 @@ def run_experiment(args):
 
     # Clustering
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
+                                                          max_iter=args['kmeans_iters'],
                                                           device=device, 
                                                           plot=args['plot_clusters'], 
                                                           constraints=constraints,
@@ -419,5 +420,6 @@ if __name__ == "__main__":
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
         'label_pattern': 'random',
         'label_noise': 0.0,
+        'kmeans_iters': 10
     }
     run_experiment(default_args)
