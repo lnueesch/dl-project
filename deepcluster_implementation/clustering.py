@@ -62,8 +62,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         ax.clear()
 
     # Use LaTeX font
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
+    # plt.rc('text', usetex=False)
+    # plt.rc('font', family='serif')
 
     # Plot K-means clustering
     for cluster in range(n_clusters):
@@ -480,6 +480,7 @@ def preprocess_constraints(ml, cl, n):
     cl_graph = {i: set() for i in range(n)}
 
     # Process must-link constraints
+    print(ml)
     for (i, j) in ml:
         ml_graph[i].add(j)
         ml_graph[j].add(i)

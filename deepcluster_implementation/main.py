@@ -17,22 +17,24 @@ import random
 import matplotlib.pyplot as plt
 import json
 
-def run_experiment(args):
-    # Fix random seeds
-    torch.manual_seed(args['seed'])
-    torch.cuda.manual_seed_all(args['seed'])
-    np.random.seed(args['seed'])
-
-    # Set device based on user input
+def get_device(args):
+    '''
+    Get the device to use for training
+    '''
     if args['device'] == 'cuda' and torch.cuda.is_available():
-        device = torch.device("cuda")
         print("Using CUDA")
+        return torch.device("cuda")
     elif args['device'] == 'mps' and torch.backends.mps.is_available():
-        device = torch.device("mps")
         print("Using MPS (Metal Performance Shaders)")
+        device = torch.device("mps")
     else:
-        device = torch.device("cpu")
         print("Using CPU")
+        device = torch.device("cpu")   
+
+def get_dataset(args):
+    '''
+    Get the dataset to use for training
+    '''
 
     # Data Preprocessing
     transform = transforms.Compose([
@@ -40,56 +42,22 @@ def run_experiment(args):
         transforms.Normalize((0.1307,), (0.3081,))  # MNIST mean and std
     ])
 
-    # Fraction of the dataset to use for testing
-    # fraction = 0.7  # Use 10% of the dataset
-
     # Load MNIST dataset
     dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
-    
-    # PROBLEMATIC: This could cause index misalignment
-    # dataset = Subset(dataset, np.arange(0, len(dataset), 1))
-    
-    # Create partially labeled dataset BEFORE any subsetting
-    if args['verbose']:
-        print('Creating partially labeled dataset')
-    partial_labeled_data, labeled_indices = create_sparse_labels(
-        dataset,
-        fraction=args['label_fraction'], 
-        pattern=args['label_pattern'],
-        noise=args['label_noise'],
-        seed=2024
-    )
 
     if args['verbose']:
-        print('Creating constraints')
-    constraints = create_constraints(
-        partial_labeled_data,
-        labeled_indices,
-        cl_fraction=args['cannot_link_fraction'],
-        ml_fraction=1,
-        seed=2024
-    )
-
-    if args['verbose']:
-        print("Number of ml constraints:", len(constraints[0]))
-        print("Number of cl constraints:", len(constraints[1]))
-
-        # print shape of a single sample
         print("sample shape: " + str(dataset[0][0].shape))
+    
+    return dataset
 
-    # DataLoader
-    train_loader = DataLoader(
-        dataset,
-        # partial_labeled_data,
-        batch_size=args['batch'],
-        num_workers=args['workers'],
-        shuffle=False,
-        pin_memory=True
-    )
-
+def get_model(args, device):
+    '''
+    Get the model to use for training
+    '''
     # Create Model
     if args['verbose']:
         print('Architecture:', args['arch'])
+    
     model = models.__dict__[args['arch']](sobel=args['sobel'])
 
     fd = int(model.top_layer.weight.size()[1])
@@ -102,6 +70,35 @@ def run_experiment(args):
 
     # Ensure the entire model is on the correct device
     model = model.to(device)
+
+    return model, fd
+
+
+def run_experiment(args):
+    # Fix random seeds
+    torch.manual_seed(args['seed'])
+    torch.cuda.manual_seed_all(args['seed'])
+    np.random.seed(args['seed'])
+
+    device = get_device(args)
+
+    dataset = get_dataset(args)
+
+    partial_labeled_data, labeled_indices = create_sparse_labels(args, dataset)
+
+    constraints = create_constraints(args, partial_labeled_data, labeled_indices)
+
+    train_loader = DataLoader(
+        dataset,
+        # partial_labeled_data,
+        batch_size=args['batch'],
+        num_workers=args['workers'],
+        shuffle=False,
+        pin_memory=True
+    )
+
+    model, fd = get_model(args, device)
+    
     cudnn.benchmark = True
 
     # Optimizer
@@ -322,7 +319,7 @@ def compute_features(dataloader, model, N, device, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if args['verbose'] and (i % 64) == 0:
+        if args['verbose'] and ((i % 64) == 0 or i == len(dataloader) - 1):
             print(f"{i}/{len(dataloader)}\tTime: {batch_time.val:.3f} ({batch_time.avg:.3f})")
 
     return features
@@ -405,7 +402,7 @@ if __name__ == "__main__":
         'lr': 5e-2,
         'wd': -5,
         'reassign': 3.0,
-        'workers': 4,
+        'workers': 12,
         'epochs': 10,
         'batch': 256,
         'momentum': 0.9,
@@ -414,10 +411,11 @@ if __name__ == "__main__":
         'seed': 31,
         'exp': './experiment',
         'verbose': True,
-        'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+        'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
         'label_fraction': 0.001,  # Fraction of the dataset to use for testing
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
+        'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
         'label_pattern': 'random',
         'label_noise': 0.0,
         'kmeans_iters': 10
