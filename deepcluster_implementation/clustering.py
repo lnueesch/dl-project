@@ -7,7 +7,7 @@
 import time
 
 import faiss
-faiss.omp_set_num_threads(1)  # Use a single thread for debugging
+# faiss.omp_set_num_threads(1)  # Use a single thread for debugging
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
@@ -90,7 +90,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, bbox_inches='tight')
-    plt.pause(1)
+    # plt.pause(1)
 
 def pil_loader(path):
     """Loads an image (for demonstration)."""
@@ -480,7 +480,6 @@ def preprocess_constraints(ml, cl, n):
     cl_graph = {i: set() for i in range(n)}
 
     # Process must-link constraints
-    print(ml)
     for (i, j) in ml:
         ml_graph[i].add(j)
         ml_graph[j].add(i)

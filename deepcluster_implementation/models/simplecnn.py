@@ -73,7 +73,6 @@ def make_layers_features(cfg, input_dim, bn):
     """Dynamically create layers from configuration."""
     layers = []
     in_channels = input_dim
-    print(input_dim)
     for v in cfg:
         if v == 'M':  # MaxPooling
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]

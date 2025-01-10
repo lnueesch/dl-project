@@ -10,7 +10,8 @@ from util import load_model
 # Define parameters
 args = {
     'data': './data',  # Path to dataset
-    'model': 'experiment/checkpoint.pth.tar',   # Path to model
+    'arch': 'simplecnn', # Architecture of the model
+    'model': 'experiment/checkpoints/checkpoint_epoch_9.pth.tar',   # Path to model
     'batch_size': 256,
     'workers': 4,  # Number of data loading workers
     'device': 'cuda' if torch.cuda.is_available() else 'cpu'
