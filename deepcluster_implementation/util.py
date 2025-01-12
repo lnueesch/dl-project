@@ -56,17 +56,45 @@ def create_sparse_labels(args, dataset):
         print('Creating partially labeled dataset')
     rng = random.Random(args['seed'])
     total_size = len(dataset)
+    nmb_clusters = args['nmb_cluster']
     
-    # Create clean labeled dataset first
-    labeled_indices = set(rng.sample(range(total_size), int(args['label_fraction'] * total_size)))
-    
-    # Initialize all labels as -1 (unlabeled)
-    new_labels = [-1] * total_size
-    
-    # First assign correct labels
-    for idx in labeled_indices:
-        _, label = dataset[idx]
-        new_labels[idx] = label
+    if args['label_pattern'] == 'random':
+        print('Random pattern')
+        # Create clean labeled dataset first
+        labeled_indices = set(rng.sample(range(total_size), int(args['label_fraction'] * total_size)))
+        
+        # Initialize all labels as -1 (unlabeled)
+        new_labels = [-1] * total_size
+        
+        # First assign correct labels
+        for idx in labeled_indices:
+            _, label = dataset[idx]
+            new_labels[idx] = label
+    elif args['label_pattern'] == 'class_wise':
+        print("Class-wise pattern")
+        
+        # Create set of all possible indices
+        indices = list(np.arange(total_size))
+        
+        nmb_labeled_clusters = args['nmb_labeled_clusters']
+        
+        # Randomly select clusters to label
+        labeled_clusters = rng.sample(range(nmb_clusters), nmb_labeled_clusters)
+        
+        count = 0
+        target = int(args['label_fraction'] * total_size)
+        new_labels = [-1] * total_size
+        labeled_indices = set()
+        
+        # Assign labels to samples from the selected clusters
+        while count < target and len(indices) != 0:
+            idx = rng.choice(indices)
+            _, label = dataset[idx]
+            if label in labeled_clusters:
+                labeled_indices.add(idx)
+                new_labels[idx] = label
+                count += 1
+            indices.remove(idx)
     
     # Then apply noise to a subset if requested
     noise = args['label_noise']
@@ -74,7 +102,7 @@ def create_sparse_labels(args, dataset):
         noisy_count = int(len(labeled_indices) * noise)
         noisy_indices = rng.sample(list(labeled_indices), noisy_count)
         
-        all_labels = list(range(10))  # MNIST has 10 classes
+        all_labels = list(range(nmb_clusters))  # Adjust based on dataset
         for idx in noisy_indices:
             true_label = new_labels[idx]
             possible_wrong = [l for l in all_labels if l != true_label]
@@ -84,7 +112,7 @@ def create_sparse_labels(args, dataset):
     # Create new dataset with these labels
     new_dataset = [(dataset[i][0], new_labels[i]) for i in range(total_size)]
 
-    #print how many labeled samples by counting non -1 labels 
+    # Print how many labeled samples by counting non -1 labels 
     labeled_count = sum(1 for label in new_labels if label != -1)
     print(f"Total labeled samples: {labeled_count} out of {total_size} ({labeled_count/total_size*100:.2f}%)")
     
@@ -109,6 +137,10 @@ def create_constraints(args, dataset, labeled_indices):
         The indices for which the labels are known (the semi-supervised subset).
     cl_fraction : float, optional
         Fraction of all possible cannot-link constraints to include (default=1.0).
+    ml_fraction : float, optional
+        Fraction of all possible must-link constraints to include (default=1.0).
+    granularity : int, optional
+        Number of cluster groups for generating cannot-link constraints.
     seed : int, optional
         Seed for random number generator, for reproducibility.
 
@@ -128,6 +160,7 @@ def create_constraints(args, dataset, labeled_indices):
 
     cl_fraction = args['cannot_link_fraction']
     ml_fraction = args['must_link_fraction']
+    granularity = args['granularity']
 
     # 1. Group labeled indices by their label.
     label_dict = defaultdict(list)
@@ -136,61 +169,64 @@ def create_constraints(args, dataset, labeled_indices):
         lbl = dataset[idx][1]
         label_dict[lbl].append(idx)
 
-    # 2. Construct all must-link constraints.
-    #    For each label, create pairwise combinations among indices having that label.
+    # 2. Construct must-link constraints.
     must_links = []
     for lbl, idxs in label_dict.items():
-        # Only need combinations if there are at least 2 indices for this label
         if len(idxs) > 1:
-            must_links.extend(combinations(idxs, 2))
+            total_pairs = len(idxs) * (len(idxs) - 1) // 2
+            n_to_sample = int(ml_fraction * total_pairs)
+            if n_to_sample >= total_pairs:
+                must_links.extend(combinations(idxs, 2))
+            else:
+                chosen_pairs = random.sample(list(combinations(idxs, 2)), n_to_sample)
+                must_links.extend(chosen_pairs)
 
     # 3. Construct cannot-link constraints across labels.
-    #    We'll sample them so that we only take 'cl_fraction' of all possible cross-label pairs.
     cannot_links = []
     all_labels = sorted(label_dict.keys())
-    for i in range(len(all_labels)):
-        for j in range(i + 1, len(all_labels)):
-            lbl_i = all_labels[i]
-            lbl_j = all_labels[j]
+    
+    # Group clusters into "granularity" many groups randomly
+    
+    random.shuffle(all_labels)
+    cluster_groups = [sorted(all_labels[i:i + granularity]) for i in range(0, len(all_labels), granularity)]
 
-            idxs_i = label_dict[lbl_i]
-            idxs_j = label_dict[lbl_j]
+    # Manually set the groups if needed
+    # cluster_groups = [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]  # Example of manual setting
+    
+    for group in cluster_groups:
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                lbl_i = group[i]
+                lbl_j = group[j]
 
-            # Possible cross-label pairs = cartesian product of idxs_i and idxs_j
-            n1, n2 = len(idxs_i), len(idxs_j)
-            total_pairs = n1 * n2
-            if total_pairs == 0:
-                continue
+                idxs_i = label_dict[lbl_i]
+                idxs_j = label_dict[lbl_j]
 
-            # Number of cannot-link pairs to sample from this cross-label set
-            n_to_sample = int(cl_fraction * total_pairs)
-            # Edge case: if fraction is 0 or the rounding yields 0, skip
-            if n_to_sample <= 0:
-                continue
+                n1, n2 = len(idxs_i), len(idxs_j)
+                total_pairs = n1 * n2
+                if total_pairs == 0:
+                    continue
 
-            if n_to_sample >= total_pairs:
-                # Take all pairs (lbl_i vs lbl_j)
-                for id_i in idxs_i:
-                    for id_j in idxs_j:
-                        cannot_links.append((id_i, id_j))
-            else:
-                # Randomly sample 'n_to_sample' unique pairs without generating all first.
-                #   1) We represent each pair by an integer from 0..(total_pairs-1).
-                #   2) Then decode that integer back to (i1, i2).
-                chosen_indices = random.sample(range(total_pairs), n_to_sample)
-                for c in chosen_indices:
-                    i1 = c // n2
-                    i2 = c % n2
-                    cannot_links.append((idxs_i[i1], idxs_j[i2]))
+                n_to_sample = int(cl_fraction * total_pairs)
+                if n_to_sample <= 0:
+                    continue
+
+                if n_to_sample >= total_pairs:
+                    for id_i in idxs_i:
+                        for id_j in idxs_j:
+                            cannot_links.append((id_i, id_j))
+                else:
+                    chosen_indices = random.sample(range(total_pairs), n_to_sample)
+                    for c in chosen_indices:
+                        i1 = c // n2
+                        i2 = c % n2
+                        cannot_links.append((idxs_i[i1], idxs_j[i2]))
 
     if args['verbose']:
         print("Number of ml constraints:", len(must_links))
         print("Number of cl constraints:", len(cannot_links))
         
     return must_links, cannot_links
-
-
-
 
 
 class UnifLabelSampler(Sampler):

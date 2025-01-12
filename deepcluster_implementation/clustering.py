@@ -372,7 +372,7 @@ class PCKmeans(object):
         """
         end = time.time()
 
-        X = preprocess_features(X)
+        # X = preprocess_features(X)
 
         ml, cl = self.constraints
 

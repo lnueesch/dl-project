@@ -36,15 +36,12 @@ def get_dataset(args):
     '''
     Get the dataset to use for training
     '''
-
-    # Data Preprocessing
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))  # MNIST/EMNIST mean and std
-    ])
-
     # Select dataset based on args
     if args.get('dataset', 'MNIST').upper() == 'EMNIST':
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1736,), (0.3248,))  # MNIST/EMNIST mean and std
+        ])
         dataset = EMNIST(
             root=args['data'],
             split='letters',  # Default split; adjust as needed
@@ -53,6 +50,10 @@ def get_dataset(args):
             transform=transform
         )
     else:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))  # MNIST/EMNIST mean and std
+        ])
         dataset = MNIST(root=args['data'], train=True, download=True, transform=transform)
 
     if args['verbose']:
@@ -391,13 +392,13 @@ def train(loader, model, criterion, optimizer, epoch, args):
 
 if __name__ == "__main__":
     default_args = {
-        'data': './data',  # Path to dataset
-        'dataset': 'EMNIST',  # Dataset to use
-        'arch': 'emnistcnn',  # Model architecture
+        'data': './deepcluster_implementation/data',  # Path to dataset
+        'dataset': 'MNIST',  # Dataset to use
+        'arch': 'mnistcnn',  # Model architecture
         'sobel': False,
         'clustering': 'PCKmeans',
         # 'clustering': 'Kmeans',
-        'nmb_cluster': 26,  # Number of clusters (10 for MNIST digits)
+        'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
         'lr': 5e-2,
         'wd': -5,
         'reassign': 3.0,
@@ -408,15 +409,17 @@ if __name__ == "__main__":
         'resume': '',  # Path to checkpoint
         'checkpoints': 25000,
         'seed': 31,
-        'exp': './experiment',
+        'exp': './deepcluster_implementation/experiment',
         'verbose': True,
         'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
         'label_fraction': 0.001,  # Fraction of the dataset to use for testing
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
         'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
-        'label_pattern': 'random',
+        'label_pattern': 'class_wise',
+        'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,
-        'kmeans_iters': 3
+        'kmeans_iters': 3,
+        'granularity': 2, # number of "class clusters" to generate constraints. Set this to nmb_cluster for finest granularity
     }
     run_experiment(default_args)
