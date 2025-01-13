@@ -27,10 +27,10 @@ def get_device(args):
         return torch.device("cuda")
     elif args['device'] == 'mps' and torch.backends.mps.is_available():
         print("Using MPS (Metal Performance Shaders)")
-        device = torch.device("mps")
+        return torch.device("mps")
     else:
         print("Using CPU")
-        device = torch.device("cpu")   
+        return torch.device("cpu")   
 
 def get_dataset(args):
     '''
