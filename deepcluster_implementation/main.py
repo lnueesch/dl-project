@@ -416,10 +416,10 @@ if __name__ == "__main__":
         'label_fraction': 0.001,  # Fraction of the dataset to use for testing
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
         'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
-        'label_pattern': 'class_wise',
+        'label_pattern': 'random',
         'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,
         'kmeans_iters': 3,
-        'granularity': 2, # number of "class clusters" to generate constraints. Set this to nmb_cluster for finest granularity
+        'granularity': 10, # Granularity-sized label cluster
     }
     run_experiment(default_args)

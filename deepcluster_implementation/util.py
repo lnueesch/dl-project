@@ -72,7 +72,7 @@ def create_sparse_labels(args, dataset):
             new_labels[idx] = label
     elif args['label_pattern'] == 'class_wise':
         print("Class-wise pattern")
-        
+        print(f"Using {args['nmb_labeled_clusters']} out of {nmb_clusters} clusters")
         # Create set of all possible indices
         indices = list(np.arange(total_size))
         
@@ -185,42 +185,63 @@ def create_constraints(args, dataset, labeled_indices):
     cannot_links = []
     all_labels = sorted(label_dict.keys())
     
-    # Group clusters into "granularity" many groups randomly
-    
+    # Group clusters into "granularity"-sized clusters
     random.shuffle(all_labels)
     cluster_groups = [sorted(all_labels[i:i + granularity]) for i in range(0, len(all_labels), granularity)]
-
     # Manually set the groups if needed
     # cluster_groups = [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]  # Example of manual setting
     
+    # Merge labels within each cluster group
+    new_label_dict = {}
+    new_all_labels = []
+
     for group in cluster_groups:
-        for i in range(len(group)):
-            for j in range(i + 1, len(group)):
-                lbl_i = group[i]
-                lbl_j = group[j]
+        merged_indices = []
+        for lbl in group:
+            merged_indices.extend(label_dict[lbl])
+        new_label = group[0]  # Use the first label in the group as the new label
+        new_label_dict[new_label] = merged_indices
+        new_all_labels.append(new_label)
 
-                idxs_i = label_dict[lbl_i]
-                idxs_j = label_dict[lbl_j]
+    label_dict = new_label_dict
+    all_labels = new_all_labels
+    
+    
+    
+    for i in range(len(all_labels)):
+        for j in range(i + 1, len(all_labels)):
+            lbl_i = all_labels[i]
+            lbl_j = all_labels[j]
 
-                n1, n2 = len(idxs_i), len(idxs_j)
-                total_pairs = n1 * n2
-                if total_pairs == 0:
-                    continue
+            idxs_i = label_dict[lbl_i]
+            idxs_j = label_dict[lbl_j]
 
-                n_to_sample = int(cl_fraction * total_pairs)
-                if n_to_sample <= 0:
-                    continue
+            # Possible cross-label pairs = cartesian product of idxs_i and idxs_j
+            n1, n2 = len(idxs_i), len(idxs_j)
+            total_pairs = n1 * n2
+            if total_pairs == 0:
+                continue
 
-                if n_to_sample >= total_pairs:
-                    for id_i in idxs_i:
-                        for id_j in idxs_j:
-                            cannot_links.append((id_i, id_j))
-                else:
-                    chosen_indices = random.sample(range(total_pairs), n_to_sample)
-                    for c in chosen_indices:
-                        i1 = c // n2
-                        i2 = c % n2
-                        cannot_links.append((idxs_i[i1], idxs_j[i2]))
+            # Number of cannot-link pairs to sample from this cross-label set
+            n_to_sample = int(cl_fraction * total_pairs)
+            # Edge case: if fraction is 0 or the rounding yields 0, skip
+            if n_to_sample <= 0:
+                continue
+
+            if n_to_sample >= total_pairs:
+                # Take all pairs (lbl_i vs lbl_j)
+                for id_i in idxs_i:
+                    for id_j in idxs_j:
+                        cannot_links.append((id_i, id_j))
+            else:
+                # Randomly sample 'n_to_sample' unique pairs without generating all first.
+                #   1) We represent each pair by an integer from 0..(total_pairs-1).
+                #   2) Then decode that integer back to (i1, i2).
+                chosen_indices = random.sample(range(total_pairs), n_to_sample)
+                for c in chosen_indices:
+                    i1 = c // n2
+                    i2 = c % n2
+                    cannot_links.append((idxs_i[i1], idxs_j[i2]))
 
     if args['verbose']:
         print("Number of ml constraints:", len(must_links))
