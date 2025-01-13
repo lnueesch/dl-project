@@ -67,5 +67,5 @@ def make_layers_features(cfg, input_dim, bn):
 
 def simplecnn(bn=True, out=10):
     """Constructor function for SimpleCNN."""
-    model = SimpleCNN(make_layers_features(CFG['mnist'], dim=1, bn=bn), out)
+    model = SimpleCNN(make_layers_features(CFG['mnist'], 1, bn=bn), out)
     return model

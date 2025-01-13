@@ -29,6 +29,7 @@ default_args = {
     'must_link_fraction': 1.0,
     'pckmeans_iters': 10,
     'custom_clusters': None,
+    'granularity': 1,
 }
 
 # experiments = [
