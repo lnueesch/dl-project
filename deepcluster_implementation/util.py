@@ -70,6 +70,7 @@ def create_sparse_labels(args, dataset):
         for idx in labeled_indices:
             _, label = dataset[idx]
             new_labels[idx] = label
+
     elif args['label_pattern'] == 'class_wise':
         print("Class-wise pattern")
         print(f"Using {args['nmb_labeled_clusters']} out of {nmb_clusters} clusters")
@@ -77,7 +78,7 @@ def create_sparse_labels(args, dataset):
         indices = list(np.arange(total_size))
         
         nmb_labeled_clusters = args['nmb_labeled_clusters']
-        
+
         # Randomly select clusters to label
         labeled_clusters = rng.sample(range(nmb_clusters), nmb_labeled_clusters)
         
@@ -186,11 +187,13 @@ def create_constraints(args, dataset, labeled_indices):
     all_labels = sorted(label_dict.keys())
     
     # Group clusters into "granularity"-sized clusters
-    random.shuffle(all_labels)
-    cluster_groups = [sorted(all_labels[i:i + granularity]) for i in range(0, len(all_labels), granularity)]
-    # Manually set the groups if needed
-    # cluster_groups = [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]  # Example of manual setting
-    
+    if args['custom_clusters']:
+        # Manually set the groups if needed
+        cluster_groups = args['custom_clusters'] 
+    else:
+        random.shuffle(all_labels)
+        cluster_groups = [sorted(all_labels[i:i + granularity]) for i in range(0, len(all_labels), granularity)]
+
     # Merge labels within each cluster group
     new_label_dict = {}
     new_all_labels = []

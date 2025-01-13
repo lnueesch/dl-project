@@ -71,7 +71,7 @@ def get_model(args, device):
     if args['verbose']:
         print('Architecture:', args['arch'])
 
-    model = models.__dict__[args['arch']](sobel=args['sobel'])
+    model = models.__dict__[args['arch']]()
     
     fd = int(model.top_layer.weight.size()[1])
     model.top_layer = None
@@ -149,7 +149,7 @@ def run_experiment(args):
 
     # Clustering
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
-                                                          max_iter=args['kmeans_iters'],
+                                                          max_iter=args['pckmeans_iters'],
                                                           device=device, 
                                                           plot=args['plot_clusters'], 
                                                           constraints=constraints,
@@ -392,10 +392,9 @@ def train(loader, model, criterion, optimizer, epoch, args):
 
 if __name__ == "__main__":
     default_args = {
-        'data': './deepcluster_implementation/data',  # Path to dataset
+        'data': './data',  # Path to dataset
         'dataset': 'MNIST',  # Dataset to use
         'arch': 'mnistcnn',  # Model architecture
-        'sobel': False,
         'clustering': 'PCKmeans',
         # 'clustering': 'Kmeans',
         'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
@@ -409,7 +408,7 @@ if __name__ == "__main__":
         'resume': '',  # Path to checkpoint
         'checkpoints': 25000,
         'seed': 31,
-        'exp': './deepcluster_implementation/experiment',
+        'exp': './experiment',
         'verbose': True,
         'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
@@ -419,7 +418,7 @@ if __name__ == "__main__":
         'label_pattern': 'random',
         'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,
-        'kmeans_iters': 3,
+        'pckmeans_iters': 3,
         'granularity': 10, # Granularity-sized label cluster
     }
     run_experiment(default_args)

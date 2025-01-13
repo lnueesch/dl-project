@@ -13,7 +13,7 @@ CFG = {
 
 
 class SimpleCNN(nn.Module):
-    def __init__(self, features, num_classes, sobel):
+    def __init__(self, features, num_classes):
         super(SimpleCNN, self).__init__()
         self.features = features  # Feature extractor
         self.classifier = nn.Sequential(
@@ -28,29 +28,8 @@ class SimpleCNN(nn.Module):
         self.top_layer = nn.Linear(256, num_classes)  # Final output layer
         self._initialize_weights()
 
-        if sobel:
-            # Sobel filter for edge detection
-            grayscale = nn.Conv2d(1, 1, kernel_size=1, stride=1, padding=0)
-            grayscale.weight.data.fill_(1.0)
-            grayscale.bias.data.zero_()
-            sobel_filter = nn.Conv2d(1, 2, kernel_size=3, stride=1, padding=1)
-            sobel_filter.weight.data[0, 0].copy_(
-                torch.FloatTensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
-            )
-            sobel_filter.weight.data[1, 0].copy_(
-                torch.FloatTensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
-            )
-            sobel_filter.bias.data.zero_()
-            self.sobel = nn.Sequential(grayscale, sobel_filter)
-            for p in self.sobel.parameters():
-                p.requires_grad = False
-        else:
-            self.sobel = None
-
     def forward(self, x):
         x = x.to(next(self.parameters()).device)
-        if self.sobel:
-            x = self.sobel(x)
         x = self.features(x)
         x = x.view(x.size(0), -1)  # Flatten
         x = self.classifier(x)
@@ -86,8 +65,7 @@ def make_layers_features(cfg, input_dim, bn):
     return nn.Sequential(*layers)
 
 
-def simplecnn(sobel=False, bn=True, out=10):
+def simplecnn(bn=True, out=10):
     """Constructor function for SimpleCNN."""
-    dim = int(not sobel)  # Adjust input channels for Sobel
-    model = SimpleCNN(make_layers_features(CFG['mnist'], dim, bn=bn), out, sobel)
+    model = SimpleCNN(make_layers_features(CFG['mnist'], dim=1, bn=bn), out)
     return model
