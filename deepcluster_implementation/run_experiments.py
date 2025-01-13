@@ -27,7 +27,7 @@ default_args = {
     'label_noise': 0.0,
     'cannot_link_fraction': 0.1,
     'must_link_fraction': 1.0,
-    'pckmeans_iters': 10,
+    'pckmeans_iters': 1,
     'custom_clusters': None,
 }
 
@@ -40,7 +40,7 @@ default_args = {
 # ]
 
 experiments_sparsity = [
-    {**default_args},
+    {**default_args, 'pckmeans_iters': 10, 'label_fraction': 0.0},
     {**default_args, 'label_fraction': 0.0001},
     {**default_args, 'label_fraction': 0.0005},
     {**default_args, 'label_fraction': 0.001},
@@ -70,14 +70,14 @@ experiments_noise = [
 # 3. class wise
 # 	{1, 2, 5, 8 nmb_labeled_clusters} x {0.001, 0.01 label_fraction}
 experiments_classwise = [
-    {**default_args, 'nmb_cluster': 1, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 1, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 2, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 2, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 5, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 5, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 8, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
-    {**default_args, 'nmb_cluster': 8, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01},
+    {**default_args, 'nmb_cluster': 1, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 1, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 2, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 2, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 5, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 5, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 8, 'label_fraction': 0.001, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
+    {**default_args, 'nmb_cluster': 8, 'label_fraction': 0.01, 'label_pattern': 'class_wise', 'cannot_link_fraction': 0.01, 'pckmeans_iters': 10},
 ]
 
 # 4. granularity (must-link = 0, cannot-link = 0.01)
