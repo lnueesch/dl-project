@@ -148,10 +148,13 @@ def run_experiment(args):
     # Loss Function
     criterion = nn.CrossEntropyLoss().to(device)
 
+    w = len(dataset)*args['label_fraction']/args['nmb_cluster'] # normalize by number of clusters
+    w *= args['violation_weight'] # multiply by violation weight
     # Clustering
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
                                                           max_iter=args['pckmeans_iters'],
                                                           device=device, 
+                                                          w=w,
                                                           plot=args['plot_clusters'])
 
     # Logging setup
@@ -159,7 +162,7 @@ def run_experiment(args):
 
     # if plot_clusters, create figure
     if args['plot_clusters']:
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
     # Start Training
     for epoch in range(args['epochs']):
@@ -181,7 +184,7 @@ def run_experiment(args):
 
         # Cluster features and visualize
         if args['verbose']: print('Clustering features')
-        save_path = os.path.join(run_folder, 'visualizations', f"epoch_{epoch}.png")
+        save_path = os.path.join(run_folder, 'visualizations', f"epoch_{epoch}.pdf")
         clustering_loss = deepcluster.cluster(fig, axes, features, 
                                               true_labels=true_labels, 
                                               epoch=epoch, 
@@ -420,7 +423,7 @@ if __name__ == "__main__":
         'seed': 31,
         'exp': './experiment',
         'verbose': True,
-        'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
+        'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
         'label_fraction': 0.001,  # Fraction of the dataset to use for testing, float if constant fraction, or list of length=epochs if label fraction dynamically changes during training
         # 'label_fraction': [0, 0, 0, 0.001, 0.001, 0.002],
@@ -432,5 +435,6 @@ if __name__ == "__main__":
         'pckmeans_iters': 5,
         'granularity': 1, # Granularity-sized label cluster
         'custom_clusters': None,
+        'violation_weight': 2,
     }
     run_experiment(default_args)
