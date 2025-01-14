@@ -48,7 +48,7 @@ def load_model(path):
 
 
 
-def create_sparse_labels(args, dataset):
+def create_sparse_labels(args, label_fraction, dataset):
     '''
     Create a partially labeled dataset from a fully labeled dataset.
     '''
@@ -61,7 +61,7 @@ def create_sparse_labels(args, dataset):
     if args['label_pattern'] == 'random':
         print('Random pattern')
         # Create clean labeled dataset first
-        labeled_indices = set(rng.sample(range(total_size), int(args['label_fraction'] * total_size)))
+        labeled_indices = set(rng.sample(range(total_size), int(label_fraction * total_size)))
         
         # Initialize all labels as -1 (unlabeled)
         new_labels = [-1] * total_size
@@ -83,7 +83,7 @@ def create_sparse_labels(args, dataset):
         labeled_clusters = rng.sample(range(nmb_clusters), nmb_labeled_clusters)
         
         count = 0
-        target = int(args['label_fraction'] * total_size)
+        target = int(label_fraction * total_size)
         new_labels = [-1] * total_size
         labeled_indices = set()
         

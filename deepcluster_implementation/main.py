@@ -119,9 +119,10 @@ def run_experiment(args):
 
     dataset = get_dataset(args)
 
-    partial_labeled_data, labeled_indices = create_sparse_labels(args, dataset)
-
-    constraints = create_constraints(args, partial_labeled_data, labeled_indices)
+    # Create constraints for PCKmeans if label fraction is constant over all epochs
+    if isinstance(args['label_fraction'], float): 
+        partial_labeled_data, labeled_indices = create_sparse_labels(args, args['label_fraction'], dataset)
+        constraints = create_constraints(args, partial_labeled_data, labeled_indices)
 
     train_loader = DataLoader(
         dataset,
@@ -151,9 +152,7 @@ def run_experiment(args):
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
                                                           max_iter=args['pckmeans_iters'],
                                                           device=device, 
-                                                          plot=args['plot_clusters'], 
-                                                          constraints=constraints,
-                                                          labeled_indices=labeled_indices)
+                                                          plot=args['plot_clusters'])
 
     # Logging setup
     cluster_log = Logger(os.path.join(run_folder, 'clusters'))
@@ -175,10 +174,21 @@ def run_experiment(args):
         # Extract true labels
         true_labels = np.array([label for _, label in dataset])
 
+        # If dynamic label fraction, create constraints
+        if isinstance(args['label_fraction'], list): 
+            partial_labeled_data, labeled_indices = create_sparse_labels(args, args['label_fraction'][epoch], dataset)
+            constraints = create_constraints(args, partial_labeled_data, labeled_indices)
+
         # Cluster features and visualize
         if args['verbose']: print('Clustering features')
         save_path = os.path.join(run_folder, 'visualizations', f"epoch_{epoch}.png")
-        clustering_loss = deepcluster.cluster(fig, axes, features, true_labels=true_labels, epoch=epoch, verbose=args['verbose'], save_path=save_path)
+        clustering_loss = deepcluster.cluster(fig, axes, features, 
+                                              true_labels=true_labels, 
+                                              epoch=epoch, 
+                                              constraints=constraints,
+                                              labeled_indices=labeled_indices,
+                                              verbose=args['verbose'], 
+                                              save_path=save_path)
 
         # Assign pseudo-labels
         if args['verbose']: print('Assigning pseudo labels')
@@ -401,8 +411,8 @@ if __name__ == "__main__":
         'lr': 5e-2,
         'wd': -5,
         'reassign': 3.0,
-        'workers': 12,
-        'epochs': 10,
+        'workers': 2,
+        'epochs': 6,
         'batch': 256,
         'momentum': 0.9,
         'resume': '',  # Path to checkpoint
@@ -410,15 +420,16 @@ if __name__ == "__main__":
         'seed': 31,
         'exp': './experiment',
         'verbose': True,
-        'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
+        'device': 'cuda',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
-        'label_fraction': 0.005,  # Fraction of the dataset to use for testing
+        'label_fraction': 0.001,  # Fraction of the dataset to use for testing, float if constant fraction, or list of length=epochs if label fraction dynamically changes during training
+        # 'label_fraction': [0, 0, 0, 0.001, 0.001, 0.002],
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
         'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
         'label_pattern': 'random',
         'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,
-        'pckmeans_iters': 1,
+        'pckmeans_iters': 5,
         'granularity': 1, # Granularity-sized label cluster
         'custom_clusters': None,
     }
