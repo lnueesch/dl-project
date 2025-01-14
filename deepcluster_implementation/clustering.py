@@ -353,16 +353,14 @@ class PCKmeans(object):
       - stores images_lists for subsequent usage
       - plots clustering results if `plot` flag is set
     """
-    def __init__(self, k, max_iter=5, w=1, device='cpu', plot=True, constraints=None, labeled_indices=None):
+    def __init__(self, k, max_iter=5, w=1, device='cpu', plot=True):
         self.n_clusters = k
         self.max_iter = max_iter
         self.w = w
         self.device = device
         self.plot = plot
-        self.constraints = constraints
-        self.labeled_indices = labeled_indices
 
-    def cluster(self, fig, axes, X, true_labels=None, epoch=None, verbose=False, save_path=None):
+    def cluster(self, fig, axes, X, true_labels=None, epoch=None, constraints=None, labeled_indices=None, verbose=False, save_path=None):
         """
         Performs k-means clustering on x_data.
         Args:
@@ -375,7 +373,7 @@ class PCKmeans(object):
 
         X = preprocess_features(X)
 
-        ml, cl = self.constraints
+        ml, cl = constraints
 
         ml_graph, cl_graph, neighborhoods = preprocess_constraints(ml, cl, X.shape[0])
 
