@@ -91,15 +91,58 @@ experiments_granularity = [
 ]
 
 if __name__ == "__main__":
+    # Run sparsity experiments
+    time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = "sparsity_" + str(time)
+    run_dir = os.path.join("./experiments", f"run_{run_name}")
+    os.makedirs(run_dir, exist_ok=True)
+
+    for i, exp_cfg in enumerate(experiments_sparsity, start=1):
+        config_dir = os.path.join(run_dir, f"config_{i}")
+        os.makedirs(config_dir, exist_ok=True)
+        exp_cfg['exp'] = config_dir
+        print(f"Running experiment in {config_dir} with config: {exp_cfg['label_fraction']}, {exp_cfg['label_noise']}")
+        run_experiment(exp_cfg)
+
+    # Run noise experiments
+    time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = "noise_" + str(time)
+    run_dir = os.path.join("./experiments", f"run_{run_name}")
+    os.makedirs(run_dir, exist_ok=True)
+
+    for i, exp_cfg in enumerate(experiments_noise, start=1):
+        config_dir = os.path.join(run_dir, f"config_{i}")
+        os.makedirs(config_dir, exist_ok=True)
+        exp_cfg['exp'] = config_dir
+        print(f"Running experiment in {config_dir} with config: {exp_cfg['label_fraction']}, {exp_cfg['label_noise']}")
+        run_experiment(exp_cfg)
+
+    # Run classwise experiments
+    time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = "classwise_" + str(time)
+    run_dir = os.path.join("./experiments", f"run_{run_name}")
+    os.makedirs(run_dir, exist_ok=True)
+
+    for i, exp_cfg in enumerate(experiments_classwise, start=1):
+        config_dir = os.path.join(run_dir, f"config_{i}")
+        os.makedirs(config_dir, exist_ok=True)
+        exp_cfg['exp'] = config_dir
+        print(f"Running experiment in {config_dir} with config: {exp_cfg['label_fraction']}, {exp_cfg['label_noise']}")
+        run_experiment(exp_cfg)
+    
+    # Run granularity experiments
     time = datetime.now().strftime('%Y%m%d_%H%M%S')
     run_name = "granularity_" + str(time)
-    # Create a run folder under ./experiments
     run_dir = os.path.join("./experiments", f"run_{run_name}")
     os.makedirs(run_dir, exist_ok=True)
 
     for i, exp_cfg in enumerate(experiments_granularity, start=1):
         config_dir = os.path.join(run_dir, f"config_{i}")
         os.makedirs(config_dir, exist_ok=True)
-        exp_cfg['exp'] = config_dir  # pass the config folder to run_experiment
+        exp_cfg['exp'] = config_dir
         print(f"Running experiment in {config_dir} with config: {exp_cfg['label_fraction']}, {exp_cfg['label_noise']}")
         run_experiment(exp_cfg)
+
+    
+
+
