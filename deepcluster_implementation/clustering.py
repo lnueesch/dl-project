@@ -7,7 +7,7 @@
 import time
 
 import faiss
-faiss.omp_set_num_threads(1)  # Use a single thread for debugging
+# faiss.omp_set_num_threads(1)  # Use a single thread for debugging
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
@@ -62,8 +62,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         ax.clear()
 
     # Use LaTeX font
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
+    # plt.rc('text', usetex=False)
+    # plt.rc('font', family='serif')
 
     # Plot K-means clustering
     for cluster in range(n_clusters):
@@ -90,7 +90,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, bbox_inches='tight')
-    plt.pause(1)
+    # plt.pause(1)
+
 
 def pil_loader(path):
     """Loads an image (for demonstration)."""
@@ -134,7 +135,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.image_indexes)
 
 
-def preprocess_features(npdata, pca=16):
+def preprocess_features(npdata, pca=32):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
     print("in_dim: ", ndim)
