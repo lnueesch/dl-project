@@ -92,6 +92,7 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         fig.savefig(save_path, bbox_inches='tight')
     # plt.pause(1)
 
+
 def pil_loader(path):
     """Loads an image (for demonstration)."""
     with open(path, 'rb') as f:
@@ -134,7 +135,7 @@ class ReassignedDataset(data.Dataset):
         return len(self.image_indexes)
 
 
-def preprocess_features(npdata, pca=16):
+def preprocess_features(npdata, pca=32):
     """Applies PCA-reducing, whitening, and L2-normalization to the data."""
     _, ndim = npdata.shape
     print("in_dim: ", ndim)
@@ -372,7 +373,7 @@ class PCKmeans(object):
         """
         end = time.time()
 
-        # X = preprocess_features(X)
+        X = preprocess_features(X)
 
         ml, cl = self.constraints
 

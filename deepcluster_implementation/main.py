@@ -394,7 +394,7 @@ if __name__ == "__main__":
     default_args = {
         'data': './data',  # Path to dataset
         'dataset': 'MNIST',  # Dataset to use
-        'arch': 'mnistcnn',  # Model architecture
+        'arch': 'simplecnn',  # Model architecture
         'clustering': 'PCKmeans',
         # 'clustering': 'Kmeans',
         'nmb_cluster': 10,  # Number of clusters (10 for MNIST digits)
@@ -410,15 +410,16 @@ if __name__ == "__main__":
         'seed': 31,
         'exp': './experiment',
         'verbose': True,
-        'device': 'cpu',  # Set to 'cuda', 'mps', or 'cpu'
+        'device': 'mps',  # Set to 'cuda', 'mps', or 'cpu'
         'plot_clusters' : True,
-        'label_fraction': 0.001,  # Fraction of the dataset to use for testing
+        'label_fraction': 0.005,  # Fraction of the dataset to use for testing
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
         'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
         'label_pattern': 'random',
         'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,
-        'pckmeans_iters': 3,
-        'granularity': 10, # Granularity-sized label cluster
+        'pckmeans_iters': 1,
+        'granularity': 1, # Granularity-sized label cluster
+        'custom_clusters': None,
     }
     run_experiment(default_args)

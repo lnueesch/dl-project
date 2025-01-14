@@ -8,11 +8,12 @@ default_args = {
     # 'arch': 'mnistcnn',
     'clustering': 'PCKmeans',
     'nmb_cluster': 10,
-    'lr': 5e-2,
+    # 'lr': 5e-2, # for mnistcnn
+    'lr': 1e-3,  # for simplecnn
     'wd': -5,
     'reassign': 3.0,
     'workers': 4,
-    'epochs': 10,
+    'epochs': 20,
     'batch': 256,
     'momentum': 0.9,
     'resume': '',
@@ -42,12 +43,11 @@ default_args = {
 
 experiments_sparsity = [
     {**default_args, 'pckmeans_iters': 10, 'label_fraction': 0.0},
-    {**default_args, 'label_fraction': 0.0001},
-    {**default_args, 'label_fraction': 0.0005},
-    {**default_args, 'label_fraction': 0.001},
-    {**default_args, 'label_fraction': 0.002},
-    {**default_args, 'label_fraction': 0.005},
-    {**default_args, 'label_fraction': 0.01},
+    {**default_args, 'pckmeans_iters': 10, 'label_fraction': 0.0005}, # 0.05%
+    {**default_args, 'pckmeans_iters': 5, 'label_fraction': 0.001}, # 0.1%
+    {**default_args, 'pckmeans_iters': 5, 'label_fraction': 0.002}, # 0.2%
+    {**default_args, 'label_fraction': 0.005}, # 0.5%
+    {**default_args, 'label_fraction': 0.01}, # 1%
 ]
 # 2. overall sparsity w/ noise
 # 	{0.005, 0.01 sparsity} x {0.0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4 noise}
