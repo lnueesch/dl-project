@@ -92,7 +92,16 @@ def save_params(args):
     '''
     with open(os.path.join(args['exp'], 'params.json'), 'w') as f:
         json.dump(args, f, indent=4)
-        
+
+def calculate_constraint_weights(n, fraction, nmb_cluster, violation_weight):
+    '''
+    Calculate the number of constraints to use based on the fraction of the dataset
+    '''
+    if fraction == 0:
+        return 0
+    w = 1./(n*fraction/nmb_cluster) # normalize by number of clusters
+    w *= violation_weight # multiply by violation weight
+    return w
 
 
 def run_experiment(args):
@@ -120,7 +129,9 @@ def run_experiment(args):
     dataset = get_dataset(args)
 
     # Create constraints for PCKmeans if label fraction is constant over all epochs
+    w = 1.
     if isinstance(args['label_fraction'], float): 
+        w = calculate_constraint_weights(len(dataset), args['label_fraction'], args['nmb_cluster'], args['violation_weight'])
         partial_labeled_data, labeled_indices = create_sparse_labels(args, args['label_fraction'], dataset)
         constraints = create_constraints(args, partial_labeled_data, labeled_indices)
 
@@ -148,15 +159,11 @@ def run_experiment(args):
     # Loss Function
     criterion = nn.CrossEntropyLoss().to(device)
 
-    w = 1/(len(dataset)*args['label_fraction']/args['nmb_cluster']) # normalize by number of clusters
-    w *= args['violation_weight'] # multiply by violation weight
-
-    print(w)
     # Clustering
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
                                                           max_iter=args['pckmeans_iters'],
-                                                          device=device, 
                                                           w=w,
+                                                          device=device, 
                                                           plot=args['plot_clusters'])
 
     # Logging setup
@@ -180,7 +187,8 @@ def run_experiment(args):
         true_labels = np.array([label for _, label in dataset])
 
         # If dynamic label fraction, create constraints
-        if isinstance(args['label_fraction'], list): 
+        if isinstance(args['label_fraction'], list):
+            deepcluster.w = calculate_constraint_weights(len(dataset), args['label_fraction'][epoch], args['nmb_cluster'], args['violation_weight'])
             partial_labeled_data, labeled_indices = create_sparse_labels(args, args['label_fraction'][epoch], dataset)
             constraints = create_constraints(args, partial_labeled_data, labeled_indices)
 
@@ -430,7 +438,7 @@ if __name__ == "__main__":
         'label_fraction': 0.001,  # Fraction of the dataset to use for testing, float if constant fraction, or list of length=epochs if label fraction dynamically changes during training
         # 'label_fraction': [0, 0, 0, 0.001, 0.001, 0.002],
         'cannot_link_fraction': 0.1,  # This is the fraction you want to use (1.0 = all constraints)
-        'must_link_fraction': 1.0,  # This is the fraction you want to use (1.0 = all constraints)
+        'must_link_fraction': 1.0, # This is the fraction you want to use (1.0 = all constraints)
         'label_pattern': 'random',
         'nmb_labeled_clusters': 5, # Number of clusters to use for labeled data
         'label_noise': 0.0,

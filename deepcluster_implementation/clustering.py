@@ -1,11 +1,4 @@
-# Copyright (c) 2017-present, Facebook, Inc.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
 import time
-
 import faiss
 # faiss.omp_set_num_threads(1)  # Use a single thread for debugging
 import numpy as np
@@ -70,7 +63,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         cluster_indices = (kmeans_labels == cluster)
         axes[0].scatter(reduced_features[cluster_indices, 0],
                         reduced_features[cluster_indices, 1],
-                        label=f"Cluster {cluster}", alpha=0.6)
+                        label=f"Cluster {cluster}", alpha=0.6, s=10
+                        )
     # axes[0].set_title(f"(PC)K-means Clusters (Epoch {epoch})")
     # axes[0].legend()
 
@@ -79,10 +73,10 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
     for label in unique_labels:
         label_indices = (true_labels == label)
         axes[1].scatter(
-            reduced_features[label_indices, 0],
-            reduced_features[label_indices, 1],
-            label=f"Label {label}", alpha=0.6
-        )
+                        reduced_features[label_indices, 0],
+                        reduced_features[label_indices, 1],
+                        label=f"Label {label}", alpha=0.6, s=10
+                        )
     # axes[1].set_title(f"True Labels (Epoch {epoch})")
     # axes[1].legend()
 
