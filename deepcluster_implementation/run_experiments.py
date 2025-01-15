@@ -19,7 +19,7 @@ default_args = {
     'seed': 42,
     'exp': './experiment',
     'verbose': True,
-    'device': 'mps',
+    'device': 'cpu',
     'plot_clusters': True,
     'label_fraction': 0.0,
     'label_pattern': 'random',
