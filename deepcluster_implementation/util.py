@@ -8,6 +8,9 @@ from torch.utils.data.sampler import Sampler
 import models
 import random
 
+from collections import defaultdict
+from itertools import combinations
+
 
 def load_model(path):
     """Loads model and return it without DataParallel table."""
@@ -113,16 +116,12 @@ def create_sparse_labels(args, label_fraction, dataset):
     
     return new_dataset, labeled_indices
 
-import random
-from collections import defaultdict
-
-import random
-from collections import defaultdict
-from itertools import combinations
 
 def create_constraints(args, dataset, labeled_indices):
     """
-    Create must-link and cannot-link constraints from a semi-supervised dataset.
+    Create must-link and cannot-link constraints from a semi-supervised dataset,
+    using custom cluster groups (or randomly generated groups) for both must-link
+    and cannot-link constraints.
 
     Parameters
     ----------
@@ -135,7 +134,7 @@ def create_constraints(args, dataset, labeled_indices):
     ml_fraction : float, optional
         Fraction of all possible must-link constraints to include (default=1.0).
     granularity : int, optional
-        Number of cluster groups for generating cannot-link constraints.
+        Number of cluster groups for generating cannot-link (and must-link) constraints.
     seed : int, optional
         Seed for random number generator, for reproducibility.
 
@@ -157,83 +156,78 @@ def create_constraints(args, dataset, labeled_indices):
     ml_fraction = args['must_link_fraction']
     granularity = args['granularity']
 
-    # 1. Group labeled indices by their label.
+    # 1. Group labeled indices by their label
     label_dict = defaultdict(list)
     for idx in labeled_indices:
-        # label is the second element in dataset[idx]
         lbl = dataset[idx][1]
         label_dict[lbl].append(idx)
 
-    # 2. Construct must-link constraints.
+    all_labels = sorted(label_dict.keys())
+
+    # 2. Create cluster groups:
+    #    - either use args['custom_clusters'] if provided
+    #    - otherwise randomly group the labels into 'granularity'-sized blocks
+    if args['custom_clusters']:
+        cluster_groups = args['custom_clusters']
+    else:
+        random.shuffle(all_labels)
+        cluster_groups = [sorted(all_labels[i:i + granularity]) 
+                          for i in range(0, len(all_labels), granularity)]
+
+    # 3. Merge all labeled indices in each cluster group
+    #    so that each cluster group is treated as a single "meta label."
+    new_label_dict = {}
+    new_all_labels = []
+    for group in cluster_groups:
+        merged_indices = []
+        # collect indices for all labels in 'group' into merged_indices
+        for lbl in group:
+            merged_indices.extend(label_dict[lbl])
+        # pick some representative label name if you wish (use the first label in group)
+        new_label = group[0] if len(group) > 0 else None
+        new_label_dict[new_label] = merged_indices
+        new_all_labels.append(new_label)
+
+    # 4. Construct must-link constraints *within* each merged cluster group
     must_links = []
-    for lbl, idxs in label_dict.items():
+    for meta_lbl, idxs in new_label_dict.items():
         if len(idxs) > 1:
             total_pairs = len(idxs) * (len(idxs) - 1) // 2
             n_to_sample = int(ml_fraction * total_pairs)
             if n_to_sample >= total_pairs:
                 must_links.extend(combinations(idxs, 2))
             else:
+                # sample from all possible combos
                 chosen_pairs = random.sample(list(combinations(idxs, 2)), n_to_sample)
                 must_links.extend(chosen_pairs)
 
-    # 3. Construct cannot-link constraints across labels.
+    # 5. Construct cannot-link constraints *across* the merged cluster groups
     cannot_links = []
-    all_labels = sorted(label_dict.keys())
-    
-    # Group clusters into "granularity"-sized clusters
-    if args['custom_clusters']:
-        # Manually set the groups if needed
-        cluster_groups = args['custom_clusters'] 
-    else:
-        random.shuffle(all_labels)
-        cluster_groups = [sorted(all_labels[i:i + granularity]) for i in range(0, len(all_labels), granularity)]
+    # new_all_labels is just a list of representative labels for each cluster group
+    for i in range(len(new_all_labels)):
+        for j in range(i + 1, len(new_all_labels)):
+            lbl_i = new_all_labels[i]
+            lbl_j = new_all_labels[j]
 
-    # Merge labels within each cluster group
-    new_label_dict = {}
-    new_all_labels = []
+            idxs_i = new_label_dict[lbl_i]
+            idxs_j = new_label_dict[lbl_j]
 
-    for group in cluster_groups:
-        merged_indices = []
-        for lbl in group:
-            merged_indices.extend(label_dict[lbl])
-        new_label = group[0]  # Use the first label in the group as the new label
-        new_label_dict[new_label] = merged_indices
-        new_all_labels.append(new_label)
-
-    label_dict = new_label_dict
-    all_labels = new_all_labels
-    
-    
-    
-    for i in range(len(all_labels)):
-        for j in range(i + 1, len(all_labels)):
-            lbl_i = all_labels[i]
-            lbl_j = all_labels[j]
-
-            idxs_i = label_dict[lbl_i]
-            idxs_j = label_dict[lbl_j]
-
-            # Possible cross-label pairs = cartesian product of idxs_i and idxs_j
             n1, n2 = len(idxs_i), len(idxs_j)
             total_pairs = n1 * n2
             if total_pairs == 0:
                 continue
 
-            # Number of cannot-link pairs to sample from this cross-label set
             n_to_sample = int(cl_fraction * total_pairs)
-            # Edge case: if fraction is 0 or the rounding yields 0, skip
             if n_to_sample <= 0:
                 continue
 
             if n_to_sample >= total_pairs:
-                # Take all pairs (lbl_i vs lbl_j)
+                # take all pairs
                 for id_i in idxs_i:
                     for id_j in idxs_j:
                         cannot_links.append((id_i, id_j))
             else:
-                # Randomly sample 'n_to_sample' unique pairs without generating all first.
-                #   1) We represent each pair by an integer from 0..(total_pairs-1).
-                #   2) Then decode that integer back to (i1, i2).
+                # random sample without building all first
                 chosen_indices = random.sample(range(total_pairs), n_to_sample)
                 for c in chosen_indices:
                     i1 = c // n2

@@ -1,6 +1,5 @@
 import time
 import faiss
-# faiss.omp_set_num_threads(1)  # Use a single thread for debugging
 import numpy as np
 from PIL import Image
 from PIL import ImageFile

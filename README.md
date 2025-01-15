@@ -4,38 +4,23 @@ Marek Landert
 Johannes Nüesch  
 Lukas Nüesch  
 
-# Semi-supervised Clustering with DeepCluster
+# Exploring Dataset Label Properties in Semi-Supervised Clustering
 
-## Motivation
-Datasets often contain sparse or missing labels, impacting clustering performance. This project extends **DeepCluster** with **PCKMeans**, enabling the use of sparse labels through soft constraints.
+This work extends the DeepCluster framework
+by incorporating sparse label information through
+PCK-means must-link and cannot-link constraints.
+Using the MNIST dataset, we analyze how label
+sparsity, distribution, noise, granularity, and dy-
+namic availability affect clustering performance.
+Our results show that even minimal supervision
+(1% labeled data or less) significantly enhances
+clustering performance, even under moderate
+noise. However, balanced class labels are crucial
+for optimal performance, whereas coarse labels
+offer only marginal gains. These findings high-
+light the potential of semi-supervised clustering.
 
-## Model
-We enhance DeepCluster by modifying the CNN loss function and integrating PCKMeans for label-guided clustering.
+# How to run experiments
+All experiments that are conducted can be reproduced by running.
 
-## Datasets
-- **MNIST**: Benchmark dataset for image clustering.
-
-## Baseline
-Fully unsupervised **DeepCluster** with k-means serves as the baseline.
-
-## Experiments
-### Label Properties
-- **Sparsity**: Varying percentages of labeled data (1%, 5%, 10%, 20%).
-- **Patterns**: Cluster-wise or feature-conditioned label sparsity.
-- **Noise**: Robustness to mislabeled data.
-- **Granularity**: Coarse-grained vs. fine-grained labels.
-- **Dynamic Labels**: Simulating temporal label availability.
-
-### Training Strategies
-- **Pretraining**: Random vs. pretrained weights.
-- **Loss Variants**: Testing alternative loss functions.
-- **Dynamic Constraints**: Adjusting constraints during training.
-
-## Evaluation Metrics
-- **Clustering**: ARI, NMI, and Cluster Purity.
-- **Latent Space**: Visualizations using t-SNE or UMAP.
-- **Robustness**: Sensitivity to noise, sparsity, and outliers.
-
-## Expected Outcomes
-1. Insights into label sparsity effects on clustering.
-2. Recommendations for semi-supervised clustering with sparse labels.
+python run_experiments.py
