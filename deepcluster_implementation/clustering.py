@@ -64,8 +64,6 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
                         reduced_features[cluster_indices, 1],
                         label=f"Cluster {cluster}", alpha=0.6, s=10
                         )
-    # axes[0].set_title(f"(PC)K-means Clusters (Epoch {epoch})")
-    # axes[0].legend()
 
     # Plot True labels
     unique_labels = np.unique(true_labels)
@@ -76,14 +74,11 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
                         reduced_features[label_indices, 1],
                         label=f"Label {label}", alpha=0.6, s=10
                         )
-    # axes[1].set_title(f"True Labels (Epoch {epoch})")
-    # axes[1].legend()
 
     # Redraw the figure
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, bbox_inches='tight')
-    # plt.pause(1)
 
 
 def pil_loader(path):
