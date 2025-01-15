@@ -148,8 +148,10 @@ def run_experiment(args):
     # Loss Function
     criterion = nn.CrossEntropyLoss().to(device)
 
-    w = len(dataset)*args['label_fraction']/args['nmb_cluster'] # normalize by number of clusters
+    w = 1/(len(dataset)*args['label_fraction']/args['nmb_cluster']) # normalize by number of clusters
     w *= args['violation_weight'] # multiply by violation weight
+
+    print(w)
     # Clustering
     deepcluster = clustering.__dict__[args['clustering']](k=args['nmb_cluster'], 
                                                           max_iter=args['pckmeans_iters'],
@@ -435,6 +437,6 @@ if __name__ == "__main__":
         'pckmeans_iters': 5,
         'granularity': 1, # Granularity-sized label cluster
         'custom_clusters': None,
-        'violation_weight': 2,
+        'violation_weight': 2.,
     }
     run_experiment(default_args)

@@ -62,8 +62,8 @@ def plot_clusters(fig, axes, features, kmeans_labels, true_labels, n_clusters, e
         ax.clear()
 
     # Use LaTeX font
-    # plt.rc('text', usetex=False)
-    # plt.rc('font', family='serif')
+    plt.rc('text', usetex=False)
+    plt.rc('font', family='serif')
 
     # Plot K-means clustering
     for cluster in range(n_clusters):
@@ -353,10 +353,11 @@ class PCKmeans(object):
       - stores images_lists for subsequent usage
       - plots clustering results if `plot` flag is set
     """
-    def __init__(self, k, max_iter=5, w=1, device='cpu', plot=True):
+    def __init__(self, k, max_iter=5, w=1., device='cpu', plot=True):
         self.n_clusters = k
         self.max_iter = max_iter
         self.w = w
+        print(self.w)
         self.device = device
         self.plot = plot
 
